@@ -590,12 +590,25 @@ namespace WifiList
 
             row.Selected = true;
 
-            ContextMenuStrip menu = new ContextMenuStrip();
-            menu.BackColor = Ui.PanelHi;
-            menu.ForeColor = Ui.Fg;
-            menu.ShowImageMargin = false;
-            menu.Font = Ui.FSub;
+            bool isCurrent = n.Current && _snap != null && _snap.Current.Connected;
 
+            ContextMenuStrip menu = new ContextMenuStrip();
+            Ui.StyleMenu(menu);
+
+            // ---- connect / disconnect ----
+            ToolStripMenuItem miConnect = new ToolStripMenuItem("连接到此网络");
+            miConnect.Enabled = !isCurrent;
+            miConnect.Click += delegate { ConnectEntry(n); };
+            menu.Items.Add(miConnect);
+
+            ToolStripMenuItem miDisconnect = new ToolStripMenuItem("断开当前连接");
+            miDisconnect.Enabled = isCurrent;
+            miDisconnect.Click += delegate { DisconnectNow(); };
+            menu.Items.Add(miDisconnect);
+
+            menu.Items.Add(new ToolStripSeparator());
+
+            // ---- clipboard / reveal ----
             ToolStripMenuItem miName = new ToolStripMenuItem("复制网络名称");
             miName.Click += delegate { CopyText(n.Ssid); };
             menu.Items.Add(miName);
@@ -619,12 +632,276 @@ namespace WifiList
 
             menu.Items.Add(new ToolStripSeparator());
 
+            // ---- profile ----
+            bool canEdit = CanEditProfile(n);
+            ToolStripMenuItem miEdit = new ToolStripMenuItem(
+                canEdit ? "编辑此网络…" : "编辑此网络…（企业级请在系统设置中修改）");
+            miEdit.Enabled = canEdit;
+            miEdit.Click += delegate { EditEntry(n); };
+            menu.Items.Add(miEdit);
+
+            bool isAuto = string.Equals(n.Mode, "auto", StringComparison.OrdinalIgnoreCase);
+            ToolStripMenuItem miMode = new ToolStripMenuItem(isAuto ? "设为手动连接" : "设为自动连接");
+            miMode.Click += delegate { SetAutoMode(n, !isAuto); };
+            menu.Items.Add(miMode);
+
+            menu.Items.Add(new ToolStripSeparator());
+
             ToolStripMenuItem miDelete = new ToolStripMenuItem("删除此网络的配置");
             miDelete.ForeColor = Ui.Danger;
             miDelete.Click += delegate { DeleteEntry(n); };
             menu.Items.Add(miDelete);
 
+            ToolStripMenuItem miRefresh = new ToolStripMenuItem("刷新列表");
+            miRefresh.Click += delegate { Reload(); };
+            menu.Items.Add(miRefresh);
+
             menu.Show(_grid, _grid.PointToClient(Cursor.Position));
+        }
+
+        /// <summary>
+        /// Only PSK style profiles can be rebuilt from this form. Enterprise
+        /// (802.1X) and WEP profiles are left to the Windows settings UI.
+        /// </summary>
+        private static bool CanEditProfile(WifiEntry n)
+        {
+            if (n == null || n.OneX) return false;
+            string a = n.AuthCode;
+            return a == "WPA2PSK" || a == "WPA3SAE" || a == "WPAPSK" || a == "OPEN";
+        }
+
+        private WifiEntry FindEntry(string ssid)
+        {
+            if (_snap == null) return null;
+            for (int i = 0; i < _snap.Nets.Count; i++)
+            {
+                if (string.Equals(_snap.Nets[i].Ssid, ssid, StringComparison.Ordinal))
+                {
+                    return _snap.Nets[i];
+                }
+            }
+            return null;
+        }
+
+        /// <summary>Waits for the radio to reach the expected state, pumping the UI meanwhile.</summary>
+        private bool WaitState(string ssid, bool wantConnected, int timeoutMs)
+        {
+            int waited = 0;
+            while (waited <= timeoutMs)
+            {
+                NetworkInfo ci = WifiCollector.GetCurrent();
+                if (wantConnected)
+                {
+                    if (ci.Connected && string.Equals(ci.Ssid, ssid, StringComparison.Ordinal)) return true;
+                }
+                else if (!ci.Connected)
+                {
+                    return true;
+                }
+
+                if (waited >= timeoutMs) break;
+                System.Threading.Thread.Sleep(400);
+                waited += 400;
+                _lblStatus.Text = (wantConnected ? "正在连接「" + ssid + "」… " : "正在断开… ") +
+                    (waited / 1000) + "s";
+                Application.DoEvents();
+            }
+            return false;
+        }
+
+        private void ConnectEntry(WifiEntry n)
+        {
+            if (n == null || _busy) return;
+
+            _busy = true;
+            this.Cursor = Cursors.WaitCursor;
+            _lblStatus.Text = "正在连接「" + n.Ssid + "」…";
+            Application.DoEvents();
+
+            NetshResult r = WifiCollector.Connect(n.Ssid);
+            bool ok = WaitState(n.Ssid, true, 12000);
+
+            this.Cursor = Cursors.Default;
+            _busy = false;
+            Reload();
+
+            if (ok)
+            {
+                _lblStatus.Text = "已连接到「" + n.Ssid + "」";
+            }
+            else
+            {
+                Prompt.Info(this, "连接未成功",
+                    FirstLines(r.Text, 6) + "\r\n\r\n" +
+                    "可能原因：\r\n" +
+                    "· 该网络不在信号范围内，或信号太弱\r\n" +
+                    "· 密码已被修改\r\n" +
+                    "· 需要网页认证或 802.1X 登录\r\n\r\n" +
+                    "可以稍等几秒后点「刷新」再看一次。");
+            }
+        }
+
+        private void DisconnectNow()
+        {
+            if (_busy) return;
+
+            _busy = true;
+            this.Cursor = Cursors.WaitCursor;
+            _lblStatus.Text = "正在断开…";
+            Application.DoEvents();
+
+            NetshResult r = WifiCollector.Disconnect();
+            bool ok = WaitState("", false, 8000);
+
+            this.Cursor = Cursors.Default;
+            _busy = false;
+            Reload();
+
+            if (ok)
+            {
+                _lblStatus.Text = "已断开无线连接";
+            }
+            else
+            {
+                Prompt.Info(this, "断开失败", FirstLines(r.Text, 6) + "\r\n\r\n可以先在系统托盘的网络菜单里手动断开。");
+            }
+        }
+
+        private void SetAutoMode(WifiEntry n, bool auto)
+        {
+            if (n == null || _busy) return;
+
+            _busy = true;
+            this.Cursor = Cursors.WaitCursor;
+            NetshResult r = WifiCollector.SetConnectionMode(n.Ssid, auto);
+            this.Cursor = Cursors.Default;
+            _busy = false;
+
+            Reload();
+
+            WifiEntry after = FindEntry(n.Ssid);
+            bool ok = after != null &&
+                string.Equals(after.Mode, auto ? "auto" : "manual", StringComparison.OrdinalIgnoreCase);
+
+            if (ok)
+            {
+                _lblStatus.Text = "「" + n.Ssid + "」已设为" + (auto ? "自动连接" : "手动连接");
+            }
+            else
+            {
+                Prompt.Info(this, "设置未生效", FirstLines(r.Text, 6) +
+                    "\r\n\r\n若提示权限不足，请以管理员身份运行后重试。");
+            }
+        }
+
+        /// <summary>
+        /// Rebuilds an existing profile from the edit form. The old profile is
+        /// exported first so a failed save can be rolled back.
+        /// </summary>
+        private void EditEntry(WifiEntry n)
+        {
+            if (n == null || _busy) return;
+
+            using (AddWifiForm dlg = new AddWifiForm(n))
+            {
+                if (dlg.ShowDialog(this) != DialogResult.OK) return;
+
+                string oldSsid = n.Ssid;
+                bool renamed = !string.Equals(dlg.Ssid, oldSsid, StringComparison.Ordinal);
+
+                if (renamed && FindEntry(dlg.Ssid) != null)
+                {
+                    if (!Prompt.Ask(this, "名称重复",
+                        "列表里已经有一个叫「" + dlg.Ssid + "」的配置。\r\n\r\n继续保存会覆盖它。",
+                        "覆盖", true))
+                    {
+                        return;
+                    }
+                }
+
+                _busy = true;
+                this.Cursor = Cursors.WaitCursor;
+                string backup = WifiCollector.BackupProfile(oldSsid);
+
+                _lblStatus.Text = "正在保存「" + dlg.Ssid + "」…";
+                Application.DoEvents();
+
+                NetshResult r = WifiCollector.AddProfile(dlg.Ssid, dlg.Auth, dlg.Enc,
+                    dlg.Key, dlg.HiddenNet, dlg.AutoMode);
+
+                // Some builds refuse to overwrite an existing profile, in which
+                // case the old one is removed and the new one written again.
+                if (!r.Ok && !renamed)
+                {
+                    WifiCollector.DeleteProfile(oldSsid);
+                    r = WifiCollector.AddProfile(dlg.Ssid, dlg.Auth, dlg.Enc,
+                        dlg.Key, dlg.HiddenNet, dlg.AutoMode);
+                }
+
+                bool saved = false;
+                if (r.Ok)
+                {
+                    WifiSnapshot check = WifiCollector.Load();
+                    if (check != null)
+                    {
+                        for (int i = 0; i < check.Nets.Count; i++)
+                        {
+                            if (string.Equals(check.Nets[i].Ssid, dlg.Ssid, StringComparison.Ordinal))
+                            {
+                                saved = string.Equals(check.Nets[i].AuthCode,
+                                    dlg.Auth.ToUpperInvariant(), StringComparison.Ordinal);
+                                break;
+                            }
+                        }
+                    }
+                }
+
+                if (saved && renamed)
+                {
+                    WifiCollector.DeleteProfile(oldSsid);
+                }
+
+                if (saved && dlg.ConnectNow)
+                {
+                    WifiCollector.Connect(dlg.Ssid);
+                    WaitState(dlg.Ssid, true, 12000);
+                }
+
+                this.Cursor = Cursors.Default;
+                _busy = false;
+                Reload();
+
+                if (!saved)
+                {
+                    string extra = "";
+                    if (backup.Length > 0)
+                    {
+                        NetshResult rb = WifiCollector.RestoreProfile(backup);
+                        extra = rb.Ok
+                            ? "\r\n\r\n已自动还原为修改前的配置。"
+                            : "\r\n\r\n原配置的回滚也失败了，请用「添加 WiFi」重新录入。";
+                    }
+
+                    Prompt.Info(this, "保存失败",
+                        FirstLines(r.Text, 8) + extra + "\r\n\r\n" +
+                        "常见原因：\r\n" +
+                        "· 密码不符合所选安全类型的要求\r\n" +
+                        "· 配置文件正被系统占用\r\n" +
+                        "· 需要以管理员身份运行本程序");
+                }
+                else
+                {
+                    _lblStatus.Text = renamed
+                        ? "已重命名为「" + dlg.Ssid + "」"
+                        : "已保存「" + dlg.Ssid + "」的配置";
+                    if (n.Current && !dlg.ConnectNow)
+                    {
+                        _lblStatus.Text += "（当前连接可能已受影响，可右键重新连接）";
+                    }
+                }
+
+                WifiCollector.DropBackup(backup);
+            }
         }
 
         private void CopyText(string text)

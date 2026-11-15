@@ -344,6 +344,9 @@ namespace WifiList
         private Rectangle _lblKey;
         private string _lblKeyText = "密码（8–63 位）";
 
+        private string _title = "添加 WiFi";
+
+
         public AddWifiForm()
         {
             this.CaptionHeight = 42;
@@ -422,6 +425,42 @@ namespace WifiList
             UpdateAuthUi();
             ApplyTheme();
             LayoutChildren();
+        }
+
+        /// <summary>
+        /// Edit mode: same form, pre-filled from an existing profile. The
+        /// caller re-adds the profile with the new values; see MainForm.
+        /// </summary>
+        public AddWifiForm(WifiEntry existing)
+            : this()
+        {
+            _title = "编辑 WiFi";
+            this.Text = "编辑 WiFi";
+
+            _chipHidden.On = existing.Hidden;
+            _chipAuto.On = string.Equals(existing.Mode, "auto", StringComparison.OrdinalIgnoreCase);
+            _chipConnect.On = false;
+
+            _authIndex = IndexOfAuth(existing.AuthCode);
+            UpdateAuthUi();
+
+            _hostSsid.Box.Text = existing.Ssid;
+            _hostKey.Box.Text = existing.Key;
+            _btnSave.Text = "保存修改";
+
+            this.Invalidate();
+        }
+
+        private static int IndexOfAuth(string code)
+        {
+            for (int i = 0; i < AuthCodes.Length; i++)
+            {
+                if (string.Equals(AuthCodes[i], code, StringComparison.OrdinalIgnoreCase))
+                {
+                    return i;
+                }
+            }
+            return 0;
         }
 
         private void OpenDrop()
@@ -558,7 +597,7 @@ namespace WifiList
             Graphics g = e.Graphics;
             int pad = Ui.Z(Pad);
 
-            Ui.Text(g, "添加 WiFi", Ui.FTitle, Ui.Fg,
+            Ui.Text(g, _title, Ui.FTitle, Ui.Fg,
                 new Rectangle(pad, Ui.Z(9), this.ClientSize.Width - pad * 2 - Ui.Z(40), Ui.FTitle.Height + Ui.Z(2)),
                 Ui.LeftTop);
 

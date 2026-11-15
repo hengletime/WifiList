@@ -461,7 +461,70 @@ namespace WifiList
 
         public static NetshResult Connect(string ssid)
         {
-            return Run("wlan connect name=\"" + ssid + "\"");
+            // ssid= helps for hidden networks; the default interface is used.
+            return Run("wlan connect name=\"" + ssid + "\" ssid=\"" + ssid + "\"");
+        }
+
+        public static NetshResult Disconnect()
+        {
+            return Run("wlan disconnect");
+        }
+
+        /// <summary>Switches a saved profile between automatic and manual connection.</summary>
+        public static NetshResult SetConnectionMode(string ssid, bool auto)
+        {
+            return Run("wlan set profileparameter name=\"" + ssid + "\" connectionmode=" +
+                (auto ? "auto" : "manual"));
+        }
+
+        /// <summary>
+        /// Exports a profile to a temp folder before it is overwritten, so a
+        /// failed edit can be rolled back. Returns the xml path, or "" if the
+        /// export failed (the caller then keeps the current profile untouched).
+        /// </summary>
+        public static string BackupProfile(string ssid)
+        {
+            string dir = Path.Combine(Path.GetTempPath(), "wifi_bak_" + Guid.NewGuid().ToString("N"));
+            try
+            {
+                Directory.CreateDirectory(dir);
+                NetshResult r = Run("wlan export profile name=\"" + ssid + "\" folder=\"" + dir + "\" key=clear");
+                if (!r.Ok) return "";
+                string[] files = Directory.GetFiles(dir, "*.xml");
+                return files.Length > 0 ? files[0] : "";
+            }
+            catch
+            {
+                return "";
+            }
+        }
+
+        /// <summary>Re-imports a profile that <see cref="BackupProfile"/> exported.</summary>
+        public static NetshResult RestoreProfile(string xmlPath)
+        {
+            if (xmlPath == null || xmlPath.Length == 0 || !File.Exists(xmlPath))
+            {
+                NetshResult bad = new NetshResult();
+                bad.Text = "备份文件不存在，无法回滚。";
+                bad.Code = -1;
+                return bad;
+            }
+            return Run("wlan add profile filename=\"" + xmlPath + "\" user=current");
+        }
+
+        public static void DropBackup(string xmlPath)
+        {
+            if (xmlPath == null || xmlPath.Length == 0) return;
+            try
+            {
+                string dir = Path.GetDirectoryName(xmlPath);
+                if (File.Exists(xmlPath)) File.Delete(xmlPath);
+                if (dir != null && Directory.Exists(dir) && Directory.GetFiles(dir).Length == 0)
+                {
+                    Directory.Delete(dir, true);
+                }
+            }
+            catch { }
         }
 
         private static string XmlEscape(string s)

@@ -116,7 +116,7 @@ namespace WifiList
             TextFormatFlags.HorizontalCenter | TextFormatFlags.Top | TextFormatFlags.NoPadding |
             TextFormatFlags.SingleLine;
 
-        public const string Version = "1.2.0";
+        public const string Version = "1.3.0";
 
         // ---- DPI helpers -------------------------------------------------
         // Every layout and paint constant is written in 96 dpi "design" units
@@ -379,9 +379,20 @@ namespace WifiList
             return Warn;
         }
 
-        public static void StyleButton(Button b, bool primary)
+        /// <summary>Applies the palette to a context menu, including its renderer.</summary>
+        public static void StyleMenu(ContextMenuStrip m)
         {
-            if (b == null) return;
+            if (m == null) return;
+            m.BackColor = PanelHi;
+            m.ForeColor = Fg;
+            m.Font = FSub;
+            m.ShowImageMargin = false;
+            m.ShowCheckMargin = false;
+            m.Renderer = new UiMenuRenderer();
+        }
+
+        public static void StyleButton(Button b, bool primary)
+        {            if (b == null) return;
             b.FlatStyle = FlatStyle.Flat;
             b.FlatAppearance.BorderSize = 0;
             b.UseVisualStyleBackColor = false;
@@ -669,6 +680,46 @@ namespace WifiList
 
             Ui.Text(g, this.Text, Ui.FSub, _on ? Ui.Fg : Ui.Dim,
                 new Rectangle(Ui.Z(30), 0, Math.Max(1, this.Width - Ui.Z(34)), this.Height), Ui.LeftMid);
+        }
+    }
+
+    /// <summary>
+    /// Context menus are drawn by ToolStrip's own renderer, which uses system
+    /// colours; on a dark palette that gives near-white text on a light blue
+    /// selection. This table keeps them on the app palette instead.
+    /// </summary>
+    internal sealed class UiMenuColors : ProfessionalColorTable
+    {
+        public override Color ToolStripDropDownBackground { get { return Ui.PanelHi; } }
+        public override Color MenuBorder { get { return Ui.LineHi; } }
+        public override Color MenuItemBorder { get { return Ui.Hover; } }
+        public override Color MenuItemSelected { get { return Ui.Hover; } }
+        public override Color MenuItemSelectedGradientBegin { get { return Ui.Hover; } }
+        public override Color MenuItemSelectedGradientEnd { get { return Ui.Hover; } }
+        public override Color ImageMarginGradientBegin { get { return Ui.PanelHi; } }
+        public override Color ImageMarginGradientMiddle { get { return Ui.PanelHi; } }
+        public override Color ImageMarginGradientEnd { get { return Ui.PanelHi; } }
+        public override Color SeparatorDark { get { return Ui.Line; } }
+        public override Color SeparatorLight { get { return Ui.Line; } }
+    }
+
+    internal sealed class UiMenuRenderer : ToolStripProfessionalRenderer
+    {
+        public UiMenuRenderer()
+            : base(new UiMenuColors())
+        {
+        }
+
+        protected override void OnRenderItemText(ToolStripItemTextRenderEventArgs e)
+        {
+            e.TextColor = e.Item.Enabled ? Ui.Fg : Ui.Mute;
+            base.OnRenderItemText(e);
+        }
+
+        protected override void OnRenderArrow(ToolStripArrowRenderEventArgs e)
+        {
+            e.ArrowColor = Ui.Dim;
+            base.OnRenderArrow(e);
         }
     }
 }
