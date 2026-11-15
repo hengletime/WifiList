@@ -82,7 +82,7 @@ namespace WifiList
         public static UiTheme Theme;
 
         public static Color Bg, Panel, PanelHi, RowAlt, Line, LineHi;
-        public static Color Fg, Dim, Mute, Accent, AccentDeep, OnAccent;
+        public static Color Fg, Dim, Mute, Accent, Accent2, AccentDeep, OnAccent;
         public static Color Ok, Info, Warn, Danger;
         public static Color SelBg, Hover, GlyphInk;
 
@@ -95,6 +95,7 @@ namespace WifiList
         public static readonly Font FCardSub = new Font("Microsoft YaHei UI", 8F);
         public static readonly Font FSsid = new Font("Microsoft YaHei UI", 11.25F, FontStyle.Bold);
         public static readonly Font FBig = new Font("Microsoft YaHei UI", 17.5F, FontStyle.Bold);
+        public static readonly Font FRing = new Font("Microsoft YaHei UI", 12F, FontStyle.Bold);
         public static readonly Font FMono = new Font("Consolas", 8.25F);
         public static readonly Font FVal = new Font("Consolas", 8.75F);
         public static readonly Font FKey = new Font("Microsoft YaHei UI", 7.75F);
@@ -110,6 +111,10 @@ namespace WifiList
         public const TextFormatFlags LeftMid =
             TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.NoPadding |
             TextFormatFlags.SingleLine | TextFormatFlags.EndEllipsis;
+
+        public const TextFormatFlags CenterTop =
+            TextFormatFlags.HorizontalCenter | TextFormatFlags.Top | TextFormatFlags.NoPadding |
+            TextFormatFlags.SingleLine;
 
         public const string Version = "1.2.0";
 
@@ -157,6 +162,7 @@ namespace WifiList
                 Dim = Color.FromArgb(0x44, 0x56, 0x6A);
                 Mute = Color.FromArgb(0x70, 0x82, 0x97);
                 Accent = Color.FromArgb(0x0E, 0xA5, 0xE9);
+                Accent2 = Color.FromArgb(0x08, 0x91, 0xB2);
                 AccentDeep = Color.FromArgb(0x02, 0x84, 0xC7);
                 OnAccent = Color.FromArgb(0xFF, 0xFF, 0xFF);
                 Ok = Color.FromArgb(0x04, 0x96, 0x66);
@@ -179,6 +185,7 @@ namespace WifiList
                 Dim = Color.FromArgb(0x99, 0xAB, 0xBE);
                 Mute = Color.FromArgb(0x6D, 0x81, 0x96);
                 Accent = Color.FromArgb(0x38, 0xBD, 0xF8);
+                Accent2 = Color.FromArgb(0x22, 0xD3, 0xEE);
                 AccentDeep = Color.FromArgb(0x0E, 0xA5, 0xE9);
                 OnAccent = Color.FromArgb(0x04, 0x14, 0x1E);
                 Ok = Color.FromArgb(0x34, 0xD3, 0x99);

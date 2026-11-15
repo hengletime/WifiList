@@ -230,8 +230,8 @@ namespace WifiList
             int y = capH + Ui.Z(12);
             _stats.SetBounds(x, y, w, Ui.Z(84));
             y += Ui.Z(84) + Ui.Z(10);
-            _current.SetBounds(x, y, w, Ui.Z(92));
-            y += Ui.Z(92) + Ui.Z(12);
+            _current.SetBounds(x, y, w, Ui.Z(98));
+            y += Ui.Z(98) + Ui.Z(12);
 
             int searchW = Ui.Z(250);
             _searchHost.SetBounds(x, y, searchW, barH);

@@ -1,5 +1,6 @@
 using System;
 using System.Drawing;
+using System.Drawing.Drawing2D;
 using System.Windows.Forms;
 
 namespace WifiList
@@ -149,30 +150,52 @@ namespace WifiList
 
             int y0 = card.Y + Ui.Z(11);
 
-            // ---- signal block ----
+            // ---- signal ring (same idea as the HTML report) ----
             int pct = ci.Signal;
             if (pct < 0) pct = 0;
             if (pct > 100) pct = 100;
 
-            Ui.Text(g, pct + "%", Ui.FBig, Ui.Accent,
-                new Rectangle(padL, y0, Ui.Z(78), Ui.FBig.Height + Ui.Z(2)), Ui.LeftTop);
+            int ringD = Ui.Z(76);
+            int ringX = padL;
+            int ringY = card.Y + (card.Height - ringD) / 2;
+            int stroke = Math.Max(3, Ui.Z(6));
+            Rectangle arc = new Rectangle(ringX + stroke / 2, ringY + stroke / 2,
+                Math.Max(4, ringD - stroke), Math.Max(4, ringD - stroke));
 
-            int sigY = y0 + Ui.FBig.Height + Ui.Z(1);
-            Ui.Text(g, "信号", Ui.FCardSub, Ui.Mute,
-                new Rectangle(padL, sigY, Ui.Z(78), Ui.FCardSub.Height + Ui.Z(2)), Ui.LeftTop);
+            SmoothingMode oldMode = g.SmoothingMode;
+            g.SmoothingMode = SmoothingMode.AntiAlias;
 
-            int barW = Ui.Z(70);
-            int barY = sigY + Ui.FCardSub.Height + Ui.Z(5);
-            int barH = Math.Max(2, Ui.Z(4));
-            Ui.FillRound(g, new Rectangle(padL, barY, barW, barH), barH / 2, Ui.Line);
-            int fillW = (int)Math.Round(barW * (pct / 100.0));
-            if (fillW > 0)
+            using (Pen track = new Pen(Ui.LineHi, stroke))
             {
-                Ui.FillRound(g, new Rectangle(padL, barY, fillW, barH), barH / 2, Ui.Accent);
+                track.StartCap = LineCap.Round;
+                track.EndCap = LineCap.Round;
+                g.DrawEllipse(track, arc);
             }
 
+            float sweep = 3.6F * pct;
+            if (sweep > 1F)
+            {
+                using (LinearGradientBrush grad = new LinearGradientBrush(arc, Ui.Accent, Ui.Accent2, 45F))
+                using (Pen val = new Pen(grad, stroke))
+                {
+                    val.StartCap = LineCap.Round;
+                    val.EndCap = LineCap.Round;
+                    g.DrawArc(val, arc, -90F, sweep);
+                }
+            }
+
+            g.SmoothingMode = oldMode;
+
+            int textH = Ui.FRing.Height + Ui.FCardSub.Height + Ui.Z(1);
+            int textY = ringY + (ringD - textH) / 2;
+            Ui.Text(g, pct + "%", Ui.FRing, Ui.Fg,
+                new Rectangle(ringX, textY, ringD, Ui.FRing.Height + Ui.Z(2)), Ui.CenterTop);
+            Ui.Text(g, "信号", Ui.FCardSub, Ui.Mute,
+                new Rectangle(ringX, textY + Ui.FRing.Height + Ui.Z(1), ringD,
+                    Ui.FCardSub.Height + Ui.Z(2)), Ui.CenterTop);
+
             // ---- name block ----
-            int midX = padL + Ui.Z(88);
+            int midX = padL + Ui.Z(96);
             Ui.Text(g, "当前连接", Ui.FKey, Ui.Mute,
                 new Rectangle(midX, y0, Ui.Z(280), kH), Ui.LeftTop);
 
@@ -234,7 +257,7 @@ namespace WifiList
             string[] k2 = new string[] { "链路速率", "安全类型", "RSSI" };
             string[] v2 = new string[] { Safe(ci.Speed), secText, rssi };
 
-            int row2 = y0 + kH + vH + Ui.Z(8);
+            int row2 = y0 + kH + vH + Ui.Z(12);
             for (int c = 0; c < 3; c++)
             {
                 int cx = gx + c * colW;
