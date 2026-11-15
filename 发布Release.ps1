@@ -43,7 +43,10 @@ $body = Get-Content $notesPath -Raw -Encoding UTF8
 $dist = Join-Path $root "dist"
 $assets = @()
 if (Test-Path $dist) {
-    $assets = Get-ChildItem $dist -File | Where-Object { $_.Extension -eq ".exe" -or $_.Extension -eq ".zip" }
+    # only the two documented downloads; the bare WifiList.exe is the same binary as in the zip
+    $assets = Get-ChildItem $dist -File | Where-Object {
+        ($_.Extension -eq ".exe" -or $_.Extension -eq ".zip") -and $_.Name -ne "WifiList.exe"
+    }
 }
 if ($assets.Count -gt 0) {
     $lines = @("", "### SHA-256", "", '```')

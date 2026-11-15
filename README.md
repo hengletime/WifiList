@@ -271,6 +271,9 @@ WinForms 的 `Control.Visible` 取的是「自己和所有父级都可见」，�
 **15. 装完就该消失，别等用户点关闭**
 勾了「立即运行」时程序已经自己弹出来了，安装窗口再留着只会让人以为卡住。成功分支里先记下 `ran = _chkLaunch.Checked`，状态行换成「安装完成，程序已启动，本窗口即将关闭」，再用一个 `System.Windows.Forms.Timer` 在 1 秒后 `Close()`（卸载成功则 2.2 秒，留出读「已卸载」的时间）。注意 `System.Threading` 也导入了 `Timer`，写全名避免二义性。卸载要尽早退出还有个副作用红利：卸载程序自删的后台 shell 约定 5 秒后开始重试，窗口退得早，删除就一次成功。
 
+**16. 界面版式要能被"无人值守"地核对**
+安装程序除了正常参数，还认 `--render <png>` / `--render-remove <png>` / `--lang zh|en|th`：把窗口放到屏幕外 `Show()`，`DrawToBitmap` 存成 PNG 后退出。改版式时逐语截图目视核对，比人肉点安装程序可靠得多（主程序的报告导出也是同一套思路：`WifiList.exe --render out.png dark en`）。这三个开关在发布版里保留，方便日后回归。
+
 
 ---
 
