@@ -1,0 +1,14 @@
+# Build output
+*.exe
+*.pdb
+*.obj
+
+# Exported reports contain plaintext WiFi passwords - never commit them
+output/
+_*.html
+_*.png
+
+# Local tooling state and scratch files
+.workbuddy/
+doc/
+_t.cs
