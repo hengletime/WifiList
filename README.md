@@ -192,6 +192,8 @@ Wifi List\
 ├─ WifiList.exe                  ← 编译产物，双击运行（不纳入版本库）
 ├─ 编译生成exe.bat               ← 一键编译（只出 exe）
 ├─ 打包发布.bat                  ← 一键编译 + 出安装版 + 出绿色版 zip（产物在 dist\）
+├─ scripts\
+│  └─ publish_release.py         发布到 GitHub Releases（前置校验 + 幂等 + digest 终核）
 ├─ installer\
 │  └─ Setup.cs                   安装程序源码（安装 / 卸载 / 静默安装）
 ├─ src\
@@ -273,6 +275,11 @@ WinForms 的 `Control.Visible` 取的是「自己和所有父级都可见」，�
 
 **16. 界面版式要能被"无人值守"地核对**
 安装程序除了正常参数，还认 `--render <png>` / `--render-remove <png>` / `--lang zh|en|th`：把窗口放到屏幕外 `Show()`，`DrawToBitmap` 存成 PNG 后退出。改版式时逐语截图目视核对，比人肉点安装程序可靠得多（主程序的报告导出也是同一套思路：`WifiList.exe --render out.png dark en`）。这三个开关在发布版里保留，方便日后回归。
+
+**17. 发布也是一条命令，且发完要自我终核**
+`scripts/publish_release.py <版本>` 用 Python 标准库直连 GitHub API（不依赖 gh、不依赖 PowerShell），流程是：校验四处版本号一致 → 校验 dist 两件产物非空 → 把 `RELEASE_NOTES_v<版本>.md` 的 `<!--SHA-->` 换成两件的 SHA-256、去掉与页面标题重复的首行 H1 → 创建或**更新**已有的同名 Release（幂等）→ 逐件上传（线上同名且 digest 相同就跳过）→ 最后回读线上资产，把 `digest` 与本地 sha256 逐字比对，不一致直接失败。
+令牌不进代码：先 `mkdir -p .tmp && printf "protocol=https\nhost=github.com\n\n" | git credential fill > .tmp/gh_cred`，脚本只读 `password=` 那一行，发完立刻 `rm -rf .tmp`（`.tmp/` 已在 `.gitignore` 里）。
+写这支脚本的直接动因是一次教训：手动调 API 时少写一个字段不会报错，只会安静地留一张残缺的 Release 页。
 
 
 ---

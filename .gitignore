@@ -15,3 +15,5 @@ _*.png
 .workbuddy/
 doc/
 _t.cs
+.tmp/
+__pycache__/
