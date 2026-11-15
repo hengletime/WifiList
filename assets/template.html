@@ -20,7 +20,7 @@
   --wpa3:#34d399; --wpa2:#60a5fa; --wpa:#fbbf24; --wep:#fb7185; --open:#94a3b8;
   --shadow:0 18px 48px -22px rgba(0,0,0,.85);
   --mono:ui-monospace,"Cascadia Mono","SF Mono",Consolas,"Liberation Mono",monospace;
-  --sans:"Segoe UI Variable Display","Segoe UI","Microsoft YaHei UI","Microsoft YaHei",system-ui,-apple-system,sans-serif;
+  --sans:"Segoe UI Variable Display","Segoe UI","Leelawadee UI","Microsoft YaHei UI","Microsoft YaHei","Noto Sans Thai",system-ui,-apple-system,sans-serif;
 }
 html[data-theme="light"]{
   --bg:#eef3f9; --bg-soft:#e4ecf5;
@@ -76,7 +76,7 @@ h1{margin:0; font-size:23px; font-weight:650; letter-spacing:-.35px}
 .sub{margin:3px 0 0; font-size:12.5px; color:var(--fg-mute); font-family:var(--mono); letter-spacing:-.1px;
   white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
 .sub b{color:var(--fg-dim); font-weight:600}
-.tools{display:flex; gap:8px; flex-wrap:wrap}
+.tools{display:flex; gap:8px; flex-wrap:wrap; align-items:center}
 button{font-family:inherit; font-size:12.5px; cursor:pointer; border-radius:10px; border:1px solid var(--line);
   background:var(--panel); color:var(--fg-dim); padding:8px 13px; display:inline-flex; align-items:center; gap:7px;
   transition:border-color .16s, color .16s, background .16s, transform .1s; backdrop-filter:blur(8px)}
@@ -85,6 +85,16 @@ button:active{transform:translateY(1px)}
 button svg{width:14px;height:14px;stroke:currentColor;stroke-width:2;fill:none;stroke-linecap:round;stroke-linejoin:round}
 button.primary{background:linear-gradient(150deg,var(--accent),var(--accent-2)); border-color:transparent; color:#03131d; font-weight:640}
 button.primary:hover{filter:brightness(1.06); color:#03131d}
+
+/* language switch */
+.langs{display:inline-flex; align-items:stretch; border:1px solid var(--line); border-radius:10px;
+  overflow:hidden; background:var(--panel); backdrop-filter:blur(8px); height:32px}
+.langs button{border:0; border-radius:0; padding:0 11px; height:100%; background:transparent;
+  color:var(--fg-mute); font-size:12px; gap:0}
+.langs button+button{border-left:1px solid var(--line)}
+.langs button:hover{background:color-mix(in srgb, var(--fg) 7%, transparent); color:var(--fg)}
+.langs button.on{background:color-mix(in srgb, var(--accent) 17%, transparent);
+  color:color-mix(in srgb, var(--accent) 90%, var(--fg)); font-weight:640}
 
 /* ---------- notice ---------- */
 .notice{
@@ -266,21 +276,22 @@ footer code{font-family:var(--mono); color:var(--fg-dim)}
           <svg viewBox="0 0 24 24"><path d="M2.5 8.6a16 16 0 0 1 19 0"/><path d="M5.6 12.2a11 11 0 0 1 12.8 0"/><path d="M8.7 15.8a6 6 0 0 1 6.6 0"/><circle cx="12" cy="19.4" r="1.15" fill="currentColor" stroke="none"/></svg>
         </div>
         <div style="min-width:0">
-          <h1>WiFi 密码清单</h1>
+          <h1 id="hTitle">WiFi 密码清单</h1>
           <p class="sub" id="sub"></p>
         </div>
       </div>
       <div class="tools">
-        <button id="bReveal" title="显示 / 隐藏所有密码" aria-label="显示或隐藏所有密码">
+        <div class="langs" id="langs"></div>
+        <button id="bReveal">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="2.6"/></svg>
           <span id="bRevealT">显示全部密码</span>
         </button>
-        <button id="bTheme" title="切换深色 / 浅色主题" aria-label="切换深色或浅色主题">
+        <button id="bTheme">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12.8A8.5 8.5 0 1 1 11.2 3a6.8 6.8 0 0 0 9.8 9.8z"/></svg>
         </button>
-        <button id="bPrint" class="primary" title="打印或另存为 PDF" aria-label="打印或另存为 PDF">
+        <button id="bPrint" class="primary">
           <svg viewBox="0 0 24 24"><path d="M6 9V3.5h12V9"/><rect x="3.5" y="9" width="17" height="7.5" rx="2"/><path d="M6 16.5h12V21H6z"/></svg>
-          打印
+          <span id="bPrintT">打印</span>
         </button>
       </div>
     </div>
@@ -288,7 +299,7 @@ footer code{font-family:var(--mono); color:var(--fg-dim)}
 
   <div class="notice">
     <svg viewBox="0 0 24 24"><path d="M12 3.5 2.8 20h18.4L12 3.5z"/><path d="M12 9.5v4.2"/><circle cx="12" cy="17" r=".9" fill="currentColor" stroke="none"/></svg>
-    <div id="noticeTxt"><b>本文件包含明文 WiFi 密码。</b>密码默认遮挡，点击眼睛才显示。请勿通过微信、邮件或云盘外传，用完建议删除。</div>
+    <div id="noticeTxt"></div>
   </div>
 
   <section class="stats" id="stats"></section>
@@ -306,13 +317,14 @@ footer code{font-family:var(--mono); color:var(--fg-dim)}
   <main class="grid" id="grid"></main>
 
   <footer>
-    <div>由 <code>WifiList.ps1</code> 在本机生成 · 数据未上传任何服务器</div>
+    <div id="ftNote"></div>
     <div id="ftMeta"></div>
   </footer>
 </div>
 
 <script>
 var D = /*__WIFI_DATA__*/;
+var DEF_LANG = /*__WIFI_LANG__*/;
 
 (function(){
   "use strict";
@@ -323,45 +335,215 @@ var D = /*__WIFI_DATA__*/;
     });
   };
 
+  /* ================= dictionaries ================= */
+
+  var TXT = {
+    zh: {
+      appTitle: "WiFi 密码清单",
+      langTitle: "报告语言",
+      reveal: "显示全部密码", hide: "隐藏全部密码",
+      revealTitle: "显示 / 隐藏所有密码",
+      themeTitle: "切换深色 / 浅色主题",
+      printTitle: "打印或另存为 PDF", print: "打印",
+      noticePlain: "<b>本文件包含明文 WiFi 密码。</b>密码默认遮挡，点击眼睛才显示。请勿通过微信、邮件或云盘外传，用完建议删除。",
+      noticeMasked: "<b>本次导出已屏蔽密码（-NoPassword）。</b>文件只包含网络名称与加密方式，可安全分享给他人排查连接问题。",
+      saved: "已保存网络", unit: "个", autoCount: "自动连接 {0} 个",
+      current: "当前连接", notConnected: "未连接", noAssoc: "无线网卡未关联热点",
+      signalRssi: "信号 {0} dBm",
+      withKey: "含密码", notExported: "本次未导出明文", clickEye: "点击眼睛图标即可查看",
+      openNet: "开放网络", openHint: "无密码保护，连接即用", allKey: "全部网络均有密码",
+      curLabel: "当前连接", curNone: "未连接无线网络", adapterIs: "网卡：{0}",
+      bssidUnknown: "BSSID 未知",
+      ip: "IP 地址", gw: "网关", dns: "DNS", speed: "链路速率",
+      security: "安全类型", category: "网络类别", adapter: "网卡",
+      signal: "信号",
+      chipAll: "全部", chipKey: "有密码", chipOpen: "开放", chipAuto: "自动连接", chipCur: "当前连接",
+      tagAuto: "自动连接", tagHidden: "隐藏网络", tagCur: "当前",
+      pwNone: "无需密码 · 开放网络", pwNotExported: "密码未导出", pwMasked: "已屏蔽",
+      eyeTitle: "显示 / 隐藏密码", copyTitle: "复制密码",
+      empty: "没有匹配的 WiFi",
+      tally: "显示 <b>{0}</b> / {1} 个网络",
+      search: "搜索 WiFi 名称…",
+      footNote: "由 <code>WifiList</code> 在本机生成 · 数据未上传任何服务器",
+      footMeta: "{0} 个网络 · 生成于 {1}",
+      authOpen: "开放网络", authWpa3Sae: "WPA3-SAE", authWpa3Ent192: "WPA3 企业 192",
+      authWpa3Ent: "WPA3 企业", authWpa2Psk: "WPA2-PSK", authWpa2Ent: "WPA2 企业",
+      authWpaPsk: "WPA-PSK", authWpaEnt: "WPA 企业", authWep: "WEP", authShared: "WEP 共享",
+      unknown: "未知",
+      catPublic: "公用网络", catPrivate: "专用网络", catDomain: "域网络",
+      tierOpen: "开放"
+    },
+    en: {
+      appTitle: "Wi-Fi Password List",
+      langTitle: "Report language",
+      reveal: "Show all passwords", hide: "Hide all passwords",
+      revealTitle: "Show / hide all passwords",
+      themeTitle: "Toggle dark / light theme",
+      printTitle: "Print or save as PDF", print: "Print",
+      noticePlain: "<b>This file contains plaintext Wi-Fi passwords.</b> Passwords are masked by default and revealed only when you click the eye icon. Do not send it through chat apps, email or cloud drives, and delete it when you are done.",
+      noticeMasked: "<b>Passwords were masked in this export (-NoPassword).</b> The file holds network names and encryption types only, so it is safe to share when troubleshooting connectivity.",
+      saved: "Saved networks", unit: "", autoCount: "{0} set to auto-connect",
+      current: "Connected to", notConnected: "Not connected", noAssoc: "Adapter is not associated with a hotspot",
+      signalRssi: "Signal {0} dBm",
+      withKey: "With password", notExported: "Not included in this export", clickEye: "Click the eye icon to reveal",
+      openNet: "Open networks", openHint: "No password required", allKey: "Every network has a password",
+      curLabel: "Current connection", curNone: "Not connected to any wireless network", adapterIs: "Adapter: {0}",
+      bssidUnknown: "BSSID unknown",
+      ip: "IP address", gw: "Gateway", dns: "DNS", speed: "Link speed",
+      security: "Security", category: "Network type", adapter: "Adapter",
+      signal: "SIGNAL",
+      chipAll: "All", chipKey: "With password", chipOpen: "Open", chipAuto: "Auto-connect", chipCur: "Current",
+      tagAuto: "Auto-connect", tagHidden: "Hidden", tagCur: "Current",
+      pwNone: "No password · open network", pwNotExported: "Password not exported", pwMasked: "Masked",
+      eyeTitle: "Show / hide password", copyTitle: "Copy password",
+      empty: "No matching Wi-Fi networks",
+      tally: "Showing <b>{0}</b> of {1} networks",
+      search: "Search network names…",
+      footNote: "Generated locally by <code>WifiList</code> · nothing was uploaded",
+      footMeta: "{0} networks · generated {1}",
+      authOpen: "Open network", authWpa3Sae: "WPA3-SAE", authWpa3Ent192: "WPA3 Enterprise 192",
+      authWpa3Ent: "WPA3 Enterprise", authWpa2Psk: "WPA2-PSK", authWpa2Ent: "WPA2 Enterprise",
+      authWpaPsk: "WPA-PSK", authWpaEnt: "WPA Enterprise", authWep: "WEP", authShared: "WEP Shared",
+      unknown: "Unknown",
+      catPublic: "Public network", catPrivate: "Private network", catDomain: "Domain network",
+      tierOpen: "Open"
+    },
+    th: {
+      appTitle: "รายการรหัสผ่าน Wi-Fi",
+      langTitle: "ภาษาของรายงาน",
+      reveal: "แสดงรหัสผ่านทั้งหมด", hide: "ซ่อนรหัสผ่านทั้งหมด",
+      revealTitle: "แสดง / ซ่อนรหัสผ่านทั้งหมด",
+      themeTitle: "สลับธีมสว่าง / มืด",
+      printTitle: "พิมพ์หรือบันทึกเป็น PDF", print: "พิมพ์",
+      noticePlain: "<b>ไฟล์นี้มีรหัสผ่าน Wi-Fi แบบข้อความธรรมดา</b> รหัสผ่านถูกปิดไว้โดยค่าเริ่มต้น กดไอคอนรูปตาเพื่อแสดง ห้ามส่งต่อผ่านแอปแชต อีเมล หรือคลาวด์ และควรลบไฟล์เมื่อใช้เสร็จ",
+      noticeMasked: "<b>การส่งออกครั้งนี้ปิดรหัสผ่านไว้ (-NoPassword)</b> ไฟล์มีเพียงชื่อเครือข่ายและชนิดการเข้ารหัส จึงแชร์ให้ผู้อื่นช่วยตรวจสอบการเชื่อมต่อได้อย่างปลอดภัย",
+      saved: "เครือข่ายที่บันทึกไว้", unit: "", autoCount: "เชื่อมต่ออัตโนมัติ {0} เครือข่าย",
+      current: "กำลังเชื่อมต่อ", notConnected: "ไม่ได้เชื่อมต่อ", noAssoc: "อะแดปเตอร์ไม่ได้เชื่อมต่อฮอตสปอตใด",
+      signalRssi: "สัญญาณ {0} dBm",
+      withKey: "มีรหัสผ่าน", notExported: "ไม่ได้ส่งออกในครั้งนี้", clickEye: "กดไอคอนรูปตาเพื่อดู",
+      openNet: "เครือข่ายเปิด", openHint: "ไม่ต้องใช้รหัสผ่าน", allKey: "ทุกเครือข่ายมีรหัสผ่าน",
+      curLabel: "การเชื่อมต่อปัจจุบัน", curNone: "ไม่ได้เชื่อมต่อเครือข่ายไร้สาย", adapterIs: "อะแดปเตอร์: {0}",
+      bssidUnknown: "ไม่ทราบ BSSID",
+      ip: "ที่อยู่ IP", gw: "เกตเวย์", dns: "DNS", speed: "ความเร็วลิงก์",
+      security: "ความปลอดภัย", category: "ประเภทเครือข่าย", adapter: "อะแดปเตอร์",
+      signal: "สัญญาณ",
+      chipAll: "ทั้งหมด", chipKey: "มีรหัสผ่าน", chipOpen: "เปิด", chipAuto: "อัตโนมัติ", chipCur: "ปัจจุบัน",
+      tagAuto: "อัตโนมัติ", tagHidden: "ซ่อนอยู่", tagCur: "ปัจจุบัน",
+      pwNone: "ไม่ต้องใช้รหัสผ่าน · เครือข่ายเปิด", pwNotExported: "ไม่ได้ส่งออกรหัสผ่าน", pwMasked: "ปิดไว้",
+      eyeTitle: "แสดง / ซ่อนรหัสผ่าน", copyTitle: "คัดลอกรหัสผ่าน",
+      empty: "ไม่พบเครือข่ายที่ตรงกัน",
+      tally: "แสดง <b>{0}</b> จาก {1} เครือข่าย",
+      search: "ค้นหาชื่อเครือข่าย…",
+      footNote: "สร้างบนเครื่องนี้โดย <code>WifiList</code> · ไม่มีการอัปโหลดข้อมูล",
+      footMeta: "{0} เครือข่าย · สร้างเมื่อ {1}",
+      authOpen: "เครือข่ายเปิด", authWpa3Sae: "WPA3-SAE", authWpa3Ent192: "WPA3 องค์กร 192",
+      authWpa3Ent: "WPA3 องค์กร", authWpa2Psk: "WPA2-PSK", authWpa2Ent: "WPA2 องค์กร",
+      authWpaPsk: "WPA-PSK", authWpaEnt: "WPA องค์กร", authWep: "WEP", authShared: "WEP แชร์คีย์",
+      unknown: "ไม่ทราบ",
+      catPublic: "เครือข่ายสาธารณะ", catPrivate: "เครือข่ายส่วนตัว", catDomain: "เครือข่ายโดเมน",
+      tierOpen: "เปิด"
+    }
+  };
+
+  var LANGS = [
+    {k:"zh", l:"中文"},
+    {k:"en", l:"English"},
+    {k:"th", l:"ไทย"}
+  ];
+  var LOCALE = {zh:"zh-Hans-CN", en:"en", th:"th"};
+
+  /* ---------- language state ---------- */
+  function norm(v){
+    var s = String(v || "").toLowerCase();
+    if (s.indexOf("zh") === 0) return "zh";
+    if (s.indexOf("th") === 0) return "th";
+    if (s.indexOf("en") === 0) return "en";
+    return "";
+  }
+  // priority: ?lang= in the URL, then the language the report was exported in,
+  // then whatever this browser last used, then Chinese
+  var LANG = "zh";
+  try {
+    var ql = new RegExp("[?&]lang=([a-zA-Z-]+)").exec(location.search);
+    var qLang = ql ? norm(ql[1]) : "";
+    LANG = qLang || norm(DEF_LANG) || norm(localStorage.getItem("wifi-lang")) || "zh";
+  } catch(e){ LANG = norm(DEF_LANG) || "zh"; }
+
+  function t(k){
+    var o = TXT[LANG] || TXT.zh;
+    var v = o[k];
+    // an empty string is a real value (the unit suffix); only a missing key falls back
+    if (v === undefined) v = TXT.zh[k];
+    return (v === undefined) ? k : v;
+  }
+  function tf(k){
+    var a = arguments;
+    return t(k).replace(/\{(\d+)\}/g, function(_, i){
+      var v = a[Number(i) + 1];
+      return v == null ? "" : String(v);
+    });
+  }
+
+  /* ================= data helpers ================= */
+
   var AUTH = {
-    "OPEN":       {l:"开放网络",   t:"open"},
-    "WPA3SAE":    {l:"WPA3-SAE",   t:"wpa3"},
-    "WPA3ENT192": {l:"WPA3 企业 192", t:"wpa3"},
-    "WPA3ENT":    {l:"WPA3 企业",  t:"wpa3"},
-    "WPA2PSK":    {l:"WPA2-PSK",   t:"wpa2"},
-    "WPA2":       {l:"WPA2 企业",  t:"wpa2"},
-    "WPAPSK":     {l:"WPA-PSK",    t:"wpa"},
-    "WPA":        {l:"WPA 企业",   t:"wpa"},
-    "WEP":        {l:"WEP",        t:"wep"},
-    "SHARED":     {l:"WEP 共享",   t:"wep"}
+    "OPEN":       {k:"authOpen",      t:"open"},
+    "WPA3SAE":    {k:"authWpa3Sae",   t:"wpa3"},
+    "WPA3ENT192": {k:"authWpa3Ent192",t:"wpa3"},
+    "WPA3ENT":    {k:"authWpa3Ent",   t:"wpa3"},
+    "WPA2PSK":    {k:"authWpa2Psk",   t:"wpa2"},
+    "WPA2":       {k:"authWpa2Ent",   t:"wpa2"},
+    "WPAPSK":     {k:"authWpaPsk",    t:"wpa"},
+    "WPA":        {k:"authWpaEnt",    t:"wpa"},
+    "WEP":        {k:"authWep",       t:"wep"},
+    "SHARED":     {k:"authShared",    t:"wep"}
   };
   function authOf(a){
-    var k = String(a || "").toUpperCase();
-    return AUTH[k] || {l: (k || "未知"), t: "open"};
+    var key = String(a || "").toUpperCase();
+    var hit = AUTH[key];
+    if (hit) return {l: t(hit.k), t: hit.t};
+    return {l: key || t("unknown"), t: "open"};
   }
   var CAT = {
-    "PUBLIC": "公用网络",
-    "PRIVATE": "专用网络",
-    "DOMAINAUTHENTICATED": "域网络",
-    "DOMAIN": "域网络"
+    "PUBLIC": "catPublic",
+    "PRIVATE": "catPrivate",
+    "DOMAINAUTHENTICATED": "catDomain",
+    "DOMAIN": "catDomain"
   };
   function catOf(c){
-    var k = String(c || "").toUpperCase();
-    return CAT[k] || (c || "-");
+    var key = String(c || "").toUpperCase();
+    var k = CAT[key];
+    return k ? t(k) : (c || "-");
   }
 
   var SQ = 42, CIRC = 2 * Math.PI * SQ;
+  var root = document.documentElement;
+  var m = D.meta || {}, nets = D.nets || [], cur = D.current || {};
+  var ico = {
+    saved: '<svg viewBox="0 0 24 24"><path d="M3 6.5h18v13H3z"/><path d="M3 6.5 12 13l9-6.5"/></svg>',
+    cur:   '<svg viewBox="0 0 24 24"><path d="M2.5 8.6a16 16 0 0 1 19 0"/><path d="M5.6 12.2a11 11 0 0 1 12.8 0"/><path d="M8.7 15.8a6 6 0 0 1 6.6 0"/><circle cx="12" cy="19.3" r="1.1" fill="currentColor" stroke="none"/></svg>',
+    lock:  '<svg viewBox="0 0 24 24"><rect x="4.5" y="10.5" width="15" height="10" rx="2.4"/><path d="M8 10.5V7.4a4 4 0 0 1 8 0v3.1"/></svg>',
+    open:  '<svg viewBox="0 0 24 24"><rect x="4.5" y="10.5" width="15" height="10" rx="2.4"/><path d="M8 10.5V7.4a4 4 0 0 1 7.6-1.7"/></svg>'
+  };
+  var ICON_EYE = '<svg viewBox="0 0 24 24"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="2.6"/></svg>';
+  var ICON_OFF = '<svg viewBox="0 0 24 24"><path d="M4 4.2 20 20"/><path d="M9.6 5.3A9.9 9.9 0 0 1 12 5c6.4 0 10 7 10 7a17 17 0 0 1-3.2 4.1"/><path d="M6.3 7.4A17 17 0 0 0 2 12s3.6 7 10 7a9.7 9.7 0 0 0 3.3-.55"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/></svg>';
+  var ICON_COPY = '<svg viewBox="0 0 24 24"><rect x="8.5" y="8.5" width="12" height="12" rx="2.2"/><path d="M15.5 5.5H6.2A2.7 2.7 0 0 0 3.5 8.2v9.3"/></svg>';
+  var ICON_OK = '<svg viewBox="0 0 24 24"><path d="m4.5 12.5 5 5 10-10"/></svg>';
+  var ICON_WIFI = '<svg viewBox="0 0 24 24"><path d="M2.5 8.6a16 16 0 0 1 19 0"/><path d="M5.6 12.2a11 11 0 0 1 12.8 0"/><path d="M8.7 15.8a6 6 0 0 1 6.6 0"/><circle cx="12" cy="19.3" r="1.1" fill="currentColor" stroke="none"/></svg>';
+  var ICON_NONE = '<svg viewBox="0 0 24 24"><rect x="3.5" y="4.5" width="17" height="15" rx="3"/><path d="M3.5 12h17"/><circle cx="8" cy="8.2" r=".9" fill="currentColor" stroke="none"/></svg>';
+
+  var maskOn = !m.masked;
+  var filter = "all", query = "";
 
   /* ---------- theme ---------- */
-  var root = document.documentElement;
   try {
-    var saved = localStorage.getItem("wifi-theme");
-    if (saved === "dark" || saved === "light") root.setAttribute("data-theme", saved);
+    var savedTheme = localStorage.getItem("wifi-theme");
+    if (savedTheme === "dark" || savedTheme === "light") root.setAttribute("data-theme", savedTheme);
   } catch(e){}
   $("#bTheme").addEventListener("click", function(){
-    var cur = root.getAttribute("data-theme");
-    if (cur === "auto" || cur === "dark") {
-      var isLight = cur === "auto" && window.matchMedia("(prefers-color-scheme: light)").matches;
+    var now = root.getAttribute("data-theme");
+    if (now === "auto" || now === "dark") {
+      var isLight = now === "auto" && window.matchMedia("(prefers-color-scheme: light)").matches;
       root.setAttribute("data-theme", isLight ? "dark" : "light");
     } else {
       root.setAttribute("data-theme", "dark");
@@ -369,67 +551,92 @@ var D = /*__WIFI_DATA__*/;
     try { localStorage.setItem("wifi-theme", root.getAttribute("data-theme")); } catch(e){}
   });
 
-  /* ---------- header / stats ---------- */
-  var m = D.meta || {}, nets = D.nets || [], cur = D.current || {};
-  $("#sub").innerHTML = '<b>' + esc(m.host || "-") + '</b> · ' + esc(m.os || "") + ' · ' + esc(m.time || "");
-  $("#sub").title = [m.host, m.os, m.time].join(" · ");
+  /* ================= renderers ================= */
 
-  if (m.masked) {
-    $("#noticeTxt").innerHTML = '<b>本次导出已屏蔽密码（-NoPassword）。</b>文件只包含网络名称与加密方式，可安全分享给他人排查连接问题。';
-    document.querySelector(".notice").style.background = "color-mix(in srgb, var(--wpa2) 10%, transparent)";
-    document.querySelector(".notice").style.borderColor = "color-mix(in srgb, var(--wpa2) 30%, transparent)";
-    document.querySelector(".notice").style.color = "color-mix(in srgb, var(--wpa2) 78%, var(--fg))";
-    $("#bReveal").style.display = "none";
+  function renderLangBar(){
+    $("#langs").innerHTML = LANGS.map(function(x){
+      return '<button data-lang="' + x.k + '" class="' + (x.k === LANG ? "on" : "") + '">' + esc(x.l) + "</button>";
+    }).join("");
+    $("#langs").title = t("langTitle");
   }
 
-  var withKey = nets.filter(function(n){ return n.hasKey; }).length;
-  var autoCnt = nets.filter(function(n){ return n.mode === "auto"; }).length;
-  var openCnt = nets.length - withKey;
+  function renderHeader(){
+    document.documentElement.lang = LANG === "zh" ? "zh-CN" : LANG;
+    document.title = t("appTitle");
+    $("#hTitle").textContent = t("appTitle");
+    $("#bRevealT").textContent = maskOn ? t("reveal") : t("hide");
+    $("#bReveal").title = t("revealTitle");
+    $("#bReveal").setAttribute("aria-label", t("revealTitle"));
+    $("#bTheme").title = t("themeTitle");
+    $("#bTheme").setAttribute("aria-label", t("themeTitle"));
+    $("#bPrint").title = t("printTitle");
+    $("#bPrint").setAttribute("aria-label", t("printTitle"));
+    $("#bPrintT").textContent = t("print");
+    $("#q").placeholder = t("search");
 
-  var tiers = {wpa3:0, wpa2:0, wpa:0, wep:0, open:0};
-  nets.forEach(function(n){ tiers[authOf(n.auth).t]++; });
-  var order = ["wpa3","wpa2","wpa","wep","open"];
-  var tname = {wpa3:"WPA3", wpa2:"WPA2", wpa:"WPA/WEP", wep:"WEP", open:"开放"};
-  var split = order.filter(function(k){ return tiers[k] > 0; }).map(function(k){
-    return '<i style="width:' + (tiers[k] / nets.length * 100).toFixed(2) + '%;background:var(--' + k + ')" title="' + tname[k] + ' ' + tiers[k] + '"></i>';
-  }).join("");
-  var legend = order.filter(function(k){ return tiers[k] > 0; }).map(function(k){
-    return '<span style="color:var(--' + k + ')">' + tname[k] + ' ' + tiers[k] + '</span>';
-  }).join('<span style="color:var(--fg-mute)"> · </span>');
+    $("#sub").innerHTML = "<b>" + esc(m.host || "-") + "</b> · " + esc(m.os || "") + " · " + esc(m.time || "");
+    $("#sub").title = [m.host, m.os, m.time].join(" · ");
+  }
 
-  var ico = {
-    saved: '<svg viewBox="0 0 24 24"><path d="M3 6.5h18v13H3z"/><path d="M3 6.5 12 13l9-6.5"/></svg>',
-    cur:   '<svg viewBox="0 0 24 24"><path d="M2.5 8.6a16 16 0 0 1 19 0"/><path d="M5.6 12.2a11 11 0 0 1 12.8 0"/><path d="M8.7 15.8a6 6 0 0 1 6.6 0"/><circle cx="12" cy="19.3" r="1.1" fill="currentColor" stroke="none"/></svg>',
-    lock:  '<svg viewBox="0 0 24 24"><rect x="4.5" y="10.5" width="15" height="10" rx="2.4"/><path d="M8 10.5V7.4a4 4 0 0 1 8 0v3.1"/></svg>',
-    open:  '<svg viewBox="0 0 24 24"><rect x="4.5" y="10.5" width="15" height="10" rx="2.4"/><path d="M8 10.5V7.4a4 4 0 0 1 7.6-1.7"/></svg>'
-  };
+  function renderNotice(){
+    var box = document.querySelector(".notice");
+    $("#noticeTxt").innerHTML = m.masked ? t("noticeMasked") : t("noticePlain");
+    if (m.masked) {
+      box.style.background = "color-mix(in srgb, var(--wpa2) 10%, transparent)";
+      box.style.borderColor = "color-mix(in srgb, var(--wpa2) 30%, transparent)";
+      box.style.color = "color-mix(in srgb, var(--wpa2) 78%, var(--fg))";
+    }
+    $("#bReveal").style.display = m.masked ? "none" : "";
+  }
 
-  $("#stats").innerHTML =
-    '<div class="stat"><div class="k">' + ico.saved + '已保存网络</div>' +
-      '<div class="v">' + nets.length + '<small>个</small></div>' +
-      '<div class="n">自动连接 ' + autoCnt + ' 个</div>' +
-      '<div class="split">' + split + '</div>' +
-      '<div class="lg">' + legend + '</div></div>' +
-    '<div class="stat"><div class="k">' + ico.cur + '当前连接</div>' +
-      '<div class="v" style="font-size:' + (cur.connected ? '17px' : '22px') + ';letter-spacing:-.4px;line-height:1.35">' +
-        esc(cur.connected ? cur.ssid : "未连接") + '</div>' +
-      '<div class="n">' + (cur.connected ? ('信号 ' + (cur.rssi != null ? cur.rssi + ' dBm' : '-') ) : '无线网卡未关联热点') + '</div></div>' +
-    '<div class="stat"><div class="k">' + ico.lock + '含密码</div>' +
-      '<div class="v">' + withKey + '<small>个</small></div>' +
-      '<div class="n">' + (m.masked ? "本次未导出明文" : "点击眼睛图标即可查看") + '</div></div>' +
-    '<div class="stat"><div class="k">' + ico.open + '开放网络</div>' +
-      '<div class="v">' + openCnt + '<small>个</small></div>' +
-      '<div class="n">' + (openCnt ? '无密码保护，连接即用' : '全部网络均有密码') + '</div></div>';
+  function renderStats(){
+    var withKey = nets.filter(function(n){ return n.hasKey; }).length;
+    var autoCnt = nets.filter(function(n){ return n.mode === "auto"; }).length;
+    var openCnt = nets.length - withKey;
 
-  /* ---------- current connection ---------- */
-  (function(){
+    var tiers = {wpa3:0, wpa2:0, wpa:0, wep:0, open:0};
+    nets.forEach(function(n){ tiers[authOf(n.auth).t]++; });
+    var order = ["wpa3","wpa2","wpa","wep","open"];
+    var tname = {wpa3:"WPA3", wpa2:"WPA2", wpa:"WPA/WEP", wep:"WEP", open:t("tierOpen")};
+    var split = order.filter(function(k){ return tiers[k] > 0; }).map(function(k){
+      return '<i style="width:' + (tiers[k] / nets.length * 100).toFixed(2) + '%;background:var(--' + k + ')" title="' + tname[k] + ' ' + tiers[k] + '"></i>';
+    }).join("");
+    var legend = order.filter(function(k){ return tiers[k] > 0; }).map(function(k){
+      return '<span style="color:var(--' + k + ')">' + tname[k] + ' ' + tiers[k] + "</span>";
+    }).join('<span style="color:var(--fg-mute)"> · </span>');
+
+    var u = t("unit") ? "<small>" + t("unit") + "</small>" : "";
+
+    $("#stats").innerHTML =
+      '<div class="stat"><div class="k">' + ico.saved + t("saved") + "</div>" +
+        '<div class="v">' + nets.length + u + "</div>" +
+        '<div class="n">' + tf("autoCount", autoCnt) + "</div>" +
+        '<div class="split">' + split + "</div>" +
+        '<div class="lg">' + legend + "</div></div>" +
+      '<div class="stat"><div class="k">' + ico.cur + t("current") + "</div>" +
+        '<div class="v" style="font-size:' + (cur.connected ? "17px" : "22px") + ';letter-spacing:-.4px;line-height:1.35">' +
+          esc(cur.connected ? cur.ssid : t("notConnected")) + "</div>" +
+        '<div class="n">' + (cur.connected
+            ? tf("signalRssi", cur.rssi != null ? cur.rssi : "-")
+            : t("noAssoc")) + "</div></div>" +
+      '<div class="stat"><div class="k">' + ico.lock + t("withKey") + "</div>" +
+        '<div class="v">' + withKey + u + "</div>" +
+        '<div class="n">' + (m.masked ? t("notExported") : t("clickEye")) + "</div></div>" +
+      '<div class="stat"><div class="k">' + ico.open + t("openNet") + "</div>" +
+        '<div class="v">' + openCnt + u + "</div>" +
+        '<div class="n">' + (openCnt ? t("openHint") : t("allKey")) + "</div></div>";
+  }
+
+  function renderCurrent(){
     var el = $("#current");
     if (!cur.connected) {
       el.className = "current off";
-      el.innerHTML = '<div class="cur-main"><div class="lbl">当前连接</div>' +
-        '<div class="ssid">未连接无线网络</div><div class="mac">网卡：' + esc(m.adapter || "-") + '</div></div>';
+      el.innerHTML = '<div class="cur-main"><div class="lbl">' + t("curLabel") + "</div>" +
+        '<div class="ssid">' + t("curNone") + "</div>" +
+        '<div class="mac">' + esc(tf("adapterIs", m.adapter || "-")) + "</div></div>";
       return;
     }
+    el.className = "current";
     var pct = cur.signal != null ? cur.signal : 0;
     var off = CIRC * (1 - Math.max(0, Math.min(100, pct)) / 100);
     el.innerHTML =
@@ -437,62 +644,41 @@ var D = /*__WIFI_DATA__*/;
         '<svg viewBox="0 0 100 100">' +
           '<defs><linearGradient id="g1" x1="0" y1="0" x2="1" y2="1">' +
             '<stop offset="0%" stop-color="var(--accent)"/><stop offset="100%" stop-color="var(--accent-2)"/>' +
-          '</linearGradient></defs>' +
+          "</linearGradient></defs>" +
           '<circle class="bg" cx="50" cy="50" r="' + SQ + '"/>' +
           '<circle class="val" cx="50" cy="50" r="' + SQ + '" stroke-dasharray="' + CIRC.toFixed(1) + '" stroke-dashoffset="' + off.toFixed(1) + '"/>' +
-        '</svg>' +
-        '<div class="pct">' + pct + '%<em>信号</em></div>' +
-      '</div>' +
+        "</svg>" +
+        '<div class="pct">' + pct + "%<em>" + t("signal") + "</em></div>" +
+      "</div>" +
       '<div class="cur-main">' +
-        '<div class="lbl">当前连接</div>' +
-        '<div class="ssid">' + esc(cur.ssid) + '</div>' +
-        '<div class="mac">' + esc(cur.bssid || "BSSID 未知") + '</div>' +
-      '</div>' +
+        '<div class="lbl">' + t("curLabel") + "</div>" +
+        '<div class="ssid">' + esc(cur.ssid) + "</div>" +
+        '<div class="mac">' + esc(cur.bssid || t("bssidUnknown")) + "</div>" +
+      "</div>" +
       '<div class="cur-grid">' +
-        '<div class="cg"><div class="k">IP 地址</div><div class="v">' + esc(cur.ip || "-") + '</div></div>' +
-        '<div class="cg"><div class="k">网关</div><div class="v">' + esc(cur.gateway || "-") + '</div></div>' +
-        '<div class="cg"><div class="k">DNS</div><div class="v">' + esc((cur.dns || []).join(", ") || "-") + '</div></div>' +
-        '<div class="cg"><div class="k">链路速率</div><div class="v">' + esc(cur.speed || "-") + '</div></div>' +
-        '<div class="cg"><div class="k">安全类型</div><div class="v">' + esc(cur.authCode ? authOf(cur.authCode).l : "-") + '</div></div>' +
-        '<div class="cg"><div class="k">网络类别</div><div class="v">' + esc(catOf(cur.category)) + '</div></div>' +
-        '<div class="cg"><div class="k">网卡</div><div class="v" title="' + esc(m.adapter || "") + '">' + esc(m.adapter || "-") + '</div></div>' +
-        '<div class="cg"><div class="k">RSSI</div><div class="v">' + (cur.rssi != null ? cur.rssi + " dBm" : "-") + '</div></div>' +
-      '</div>';
-  })();
+        '<div class="cg"><div class="k">' + t("ip") + '</div><div class="v">' + esc(cur.ip || "-") + "</div></div>" +
+        '<div class="cg"><div class="k">' + t("gw") + '</div><div class="v">' + esc(cur.gateway || "-") + "</div></div>" +
+        '<div class="cg"><div class="k">' + t("dns") + '</div><div class="v">' + esc((cur.dns || []).join(", ") || "-") + "</div></div>" +
+        '<div class="cg"><div class="k">' + t("speed") + '</div><div class="v">' + esc(cur.speed || "-") + "</div></div>" +
+        '<div class="cg"><div class="k">' + t("security") + '</div><div class="v">' + esc(cur.authCode ? authOf(cur.authCode).l : "-") + "</div></div>" +
+        '<div class="cg"><div class="k">' + t("category") + '</div><div class="v">' + esc(catOf(cur.category)) + "</div></div>" +
+        '<div class="cg"><div class="k">' + t("adapter") + '</div><div class="v" title="' + esc(m.adapter || "") + '">' + esc(m.adapter || "-") + "</div></div>" +
+        '<div class="cg"><div class="k">RSSI</div><div class="v">' + (cur.rssi != null ? cur.rssi + " dBm" : "-") + "</div></div>" +
+      "</div>";
+  }
 
-  /* ---------- cards ---------- */
-  var maskOn = !m.masked;
-  nets.sort(function(a, b){
-    if (a.cur !== b.cur) return a.cur ? -1 : 1;
-    return String(a.ssid).localeCompare(String(b.ssid), "zh-Hans-CN");
-  });
-
-  var CHIPS = [
-    {k:"all",  l:"全部"},
-    {k:"key",  l:"有密码"},
-    {k:"open", l:"开放"},
-    {k:"auto", l:"自动连接"},
-    {k:"cur",  l:"当前连接"}
-  ];
-  var filter = "all", query = "";
-
-  $("#chips").innerHTML = CHIPS.map(function(c){
-    return '<button class="chip' + (c.k === "all" ? " on" : "") + '" data-f="' + c.k + '">' + c.l + '</button>';
-  }).join("");
-  $("#chips").addEventListener("click", function(e){
-    var b = e.target.closest(".chip"); if (!b) return;
-    filter = b.dataset.f;
-    [].forEach.call(this.children, function(c){ c.classList.toggle("on", c === b); });
-    draw();
-  });
-  $("#q").addEventListener("input", function(){ query = this.value.trim().toLowerCase(); draw(); });
-
-  var ICON_EYE = '<svg viewBox="0 0 24 24"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="2.6"/></svg>';
-  var ICON_OFF = '<svg viewBox="0 0 24 24"><path d="M4 4.2 20 20"/><path d="M9.6 5.3A9.9 9.9 0 0 1 12 5c6.4 0 10 7 10 7a17 17 0 0 1-3.2 4.1"/><path d="M6.3 7.4A17 17 0 0 0 2 12s3.6 7 10 7a9.7 9.7 0 0 0 3.3-.55"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/></svg>';
-  var ICON_COPY = '<svg viewBox="0 0 24 24"><rect x="8.5" y="8.5" width="12" height="12" rx="2.2"/><path d="M15.5 5.5H6.2A2.7 2.7 0 0 0 3.5 8.2v9.3"/></svg>';
-  var ICON_OK = '<svg viewBox="0 0 24 24"><path d="m4.5 12.5 5 5 10-10"/></svg>';
-  var ICON_WIFI = '<svg viewBox="0 0 24 24"><path d="M2.5 8.6a16 16 0 0 1 19 0"/><path d="M5.6 12.2a11 11 0 0 1 12.8 0"/><path d="M8.7 15.8a6 6 0 0 1 6.6 0"/><circle cx="12" cy="19.3" r="1.1" fill="currentColor" stroke="none"/></svg>';
-  var ICON_NONE = '<svg viewBox="0 0 24 24"><rect x="3.5" y="4.5" width="17" height="15" rx="3"/><path d="M3.5 12h17"/><circle cx="8" cy="8.2" r=".9" fill="currentColor" stroke="none"/></svg>';
+  function renderChips(){
+    var chips = [
+      {k:"all",  l:t("chipAll")},
+      {k:"key",  l:t("chipKey")},
+      {k:"open", l:t("chipOpen")},
+      {k:"auto", l:t("chipAuto")},
+      {k:"cur",  l:t("chipCur")}
+    ];
+    $("#chips").innerHTML = chips.map(function(c){
+      return '<button class="chip' + (c.k === filter ? " on" : "") + '" data-f="' + c.k + '">' + esc(c.l) + "</button>";
+    }).join("");
+  }
 
   function matches(n){
     if (query && String(n.ssid).toLowerCase().indexOf(query) === -1) return false;
@@ -504,56 +690,104 @@ var D = /*__WIFI_DATA__*/;
   }
 
   function draw(){
-    var list = nets.filter(matches);
-    var html = list.map(function(n, i){
+    var sorted = nets.slice().sort(function(a, b){
+      if (a.cur !== b.cur) return a.cur ? -1 : 1;
+      return String(a.ssid).localeCompare(String(b.ssid), LOCALE[LANG] || "zh-Hans-CN");
+    });
+    var list = sorted.filter(matches);
+
+    var html = list.map(function(n){
       var a = authOf(n.auth);
-      var tags = ['<span class="tag t-' + a.t + '">' + esc(a.l) + '</span>'];
-      if (n.enc && n.enc !== "none" && n.auth !== "OPEN") tags.push('<span class="tag t-mut">' + esc(n.enc) + '</span>');
+      var tags = ['<span class="tag t-' + a.t + '">' + esc(a.l) + "</span>"];
+      if (n.enc && n.enc !== "none" && n.auth !== "OPEN") tags.push('<span class="tag t-mut">' + esc(n.enc) + "</span>");
       if (n.onex) tags.push('<span class="tag t-mut">802.1X</span>');
-      if (n.mode === "auto") tags.push('<span class="tag t-mut">自动连接</span>');
-      if (n.hidden) tags.push('<span class="tag t-mut">隐藏网络</span>');
-      if (n.cur) tags.push('<span class="tag t-cur">当前</span>');
+      if (n.mode === "auto") tags.push('<span class="tag t-mut">' + t("tagAuto") + "</span>");
+      if (n.hidden) tags.push('<span class="tag t-mut">' + t("tagHidden") + "</span>");
+      if (n.cur) tags.push('<span class="tag t-cur">' + t("tagCur") + "</span>");
 
       var pw;
       if (!n.hasKey) {
-        pw = '<div class="pw"><span class="val none">无需密码 · 开放网络</span></div>';
+        pw = '<div class="pw"><span class="val none">' + t("pwNone") + "</span></div>";
       } else if (m.masked || !n.key) {
-        pw = '<div class="pw"><span class="val none">密码未导出</span>' +
-             '<span class="tag t-mut" style="margin-left:auto">已屏蔽</span></div>';
+        pw = '<div class="pw"><span class="val none">' + t("pwNotExported") + "</span>" +
+             '<span class="tag t-mut" style="margin-left:auto">' + t("pwMasked") + "</span></div>";
       } else {
         pw = '<div class="pw">' +
-          '<span class="val' + (maskOn ? " hid" : "") + '" data-pw="' + esc(n.key) + '">' + (maskOn ? "••••••••" : esc(n.key)) + '</span>' +
-          '<button class="ib" data-act="eye" title="显示 / 隐藏密码">' + (maskOn ? ICON_EYE : ICON_OFF) + '</button>' +
-          '<button class="ib" data-act="copy" title="复制密码">' + ICON_COPY + '</button>' +
-        '</div>';
+          '<span class="val' + (maskOn ? " hid" : "") + '" data-pw="' + esc(n.key) + '">' + (maskOn ? "••••••••" : esc(n.key)) + "</span>" +
+          '<button class="ib" data-act="eye" title="' + t("eyeTitle") + '">' + (maskOn ? ICON_EYE : ICON_OFF) + "</button>" +
+          '<button class="ib" data-act="copy" title="' + t("copyTitle") + '">' + ICON_COPY + "</button>" +
+        "</div>";
       }
 
-      return '<article class="card' + (n.cur ? " is-cur" : "") + '" data-i="' + i + '">' +
-        '<div class="ch"><div class="ico">' + (n.hasKey ? ICON_WIFI : ICON_NONE) + '</div>' +
-          '<div class="nm"><div class="t">' + esc(n.ssid) + '</div><div class="tags">' + tags.join("") + '</div></div>' +
-        '</div>' + pw + '</article>';
+      return '<article class="card' + (n.cur ? " is-cur" : "") + '">' +
+        '<div class="ch"><div class="ico">' + (n.hasKey ? ICON_WIFI : ICON_NONE) + "</div>" +
+          '<div class="nm"><div class="t">' + esc(n.ssid) + '</div><div class="tags">' + tags.join("") + "</div></div>" +
+        "</div>" + pw + "</article>";
     }).join("");
 
     $("#grid").innerHTML = list.length ? html :
       '<div class="empty"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m16.2 16.2 4.8 4.8"/></svg>' +
-      '<div>没有匹配的 WiFi</div></div>';
+      "<div>" + t("empty") + "</div></div>";
 
-    $("#tally").innerHTML = '显示 <b>' + list.length + '</b> / ' + nets.length + ' 个网络';
+    $("#tally").innerHTML = tf("tally", list.length, nets.length);
   }
 
+  function renderFooter(){
+    $("#ftNote").innerHTML = t("footNote");
+    $("#ftMeta").textContent = tf("footMeta", nets.length, m.time || "");
+  }
+
+  function renderAll(){
+    renderLangBar();
+    renderHeader();
+    renderNotice();
+    renderStats();
+    renderCurrent();
+    renderChips();
+    renderFooter();
+    draw();
+  }
+
+  /* ================= interaction ================= */
+
+  $("#langs").addEventListener("click", function(e){
+    var b = e.target.closest("[data-lang]");
+    if (!b) return;
+    var next = norm(b.getAttribute("data-lang"));
+    if (!next || next === LANG) return;
+    LANG = next;
+    try { localStorage.setItem("wifi-lang", LANG); } catch(e2){}
+    renderAll();
+  });
+
+  $("#chips").addEventListener("click", function(e){
+    var b = e.target.closest(".chip");
+    if (!b) return;
+    filter = b.getAttribute("data-f");
+    renderChips();
+    draw();
+  });
+
+  $("#q").addEventListener("input", function(){
+    query = this.value.trim().toLowerCase();
+    draw();
+  });
+
   $("#grid").addEventListener("click", function(e){
-    var btn = e.target.closest("[data-act]"); if (!btn) return;
+    var btn = e.target.closest("[data-act]");
+    if (!btn) return;
     var box = btn.closest(".pw"), val = box.querySelector(".val");
-    if (btn.dataset.act === "eye") {
+    if (btn.getAttribute("data-act") === "eye") {
       var hidden = val.classList.contains("hid");
       val.classList.toggle("hid", !hidden);
-      val.textContent = hidden ? val.dataset.pw : "••••••••";
+      val.textContent = hidden ? val.getAttribute("data-pw") : "••••••••";
       btn.innerHTML = hidden ? ICON_OFF : ICON_EYE;
       if (hidden) maskOn = false;
-    } else if (btn.dataset.act === "copy") {
-      var text = val.dataset.pw;
+    } else if (btn.getAttribute("data-act") === "copy") {
+      var text = val.getAttribute("data-pw");
       var done = function(){
-        btn.innerHTML = ICON_OK; btn.classList.add("ok");
+        btn.innerHTML = ICON_OK;
+        btn.classList.add("ok");
         setTimeout(function(){ btn.innerHTML = ICON_COPY; btn.classList.remove("ok"); }, 1300);
       };
       if (navigator.clipboard && navigator.clipboard.writeText) {
@@ -561,9 +795,10 @@ var D = /*__WIFI_DATA__*/;
       } else { legacy(text); done(); }
     }
   });
-  function legacy(t){
+
+  function legacy(txt){
     var ta = document.createElement("textarea");
-    ta.value = t; ta.style.position = "fixed"; ta.style.opacity = "0";
+    ta.value = txt; ta.style.position = "fixed"; ta.style.opacity = "0";
     document.body.appendChild(ta); ta.select();
     try { document.execCommand("copy"); } catch(e){}
     document.body.removeChild(ta);
@@ -573,17 +808,17 @@ var D = /*__WIFI_DATA__*/;
     maskOn = !maskOn;
     document.querySelectorAll(".val[data-pw]").forEach(function(v){
       v.classList.toggle("hid", maskOn);
-      v.textContent = maskOn ? "••••••••" : v.dataset.pw;
+      v.textContent = maskOn ? "••••••••" : v.getAttribute("data-pw");
     });
     document.querySelectorAll('[data-act="eye"]').forEach(function(b){
       b.innerHTML = maskOn ? ICON_EYE : ICON_OFF;
     });
-    $("#bRevealT").textContent = maskOn ? "显示全部密码" : "隐藏全部密码";
+    $("#bRevealT").textContent = maskOn ? t("reveal") : t("hide");
   });
+
   $("#bPrint").addEventListener("click", function(){ window.print(); });
 
-  $("#ftMeta").textContent = nets.length + " 个网络 · 生成于 " + (m.time || "");
-  draw();
+  renderAll();
 })();
 </script>
 </body>

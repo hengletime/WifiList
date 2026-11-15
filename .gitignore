@@ -3,6 +3,8 @@
 *.pdb
 *.obj
 build.log
+build/
+dist/
 
 # Exported reports contain plaintext WiFi passwords - never commit them
 output/

@@ -43,8 +43,8 @@ namespace WifiList
             int withKey = 0;
             int open = 0;
             int auto = 0;
-            string curSsid = "未连接";
-            string curSub = "无线网卡未关联热点";
+            string curSsid = L.T("p.notConnected");
+            string curSub = L.T("p.noAssoc");
 
             if (_snap != null)
             {
@@ -58,26 +58,29 @@ namespace WifiList
                 open = total - withKey;
                 if (_snap.Current.Connected)
                 {
-                    curSsid = _snap.Current.Ssid.Length > 0 ? _snap.Current.Ssid : "已连接";
+                    curSsid = _snap.Current.Ssid.Length > 0 ? _snap.Current.Ssid : L.T("c.connected");
                     if (_snap.Current.HasRssi)
                     {
-                        curSub = "信号 " + _snap.Current.Signal + "%  ·  " + _snap.Current.Rssi + " dBm";
+                        curSub = L.F("p.signalRssi", _snap.Current.Signal, _snap.Current.Rssi);
                     }
                     else
                     {
-                        curSub = "信号 " + _snap.Current.Signal + "%";
+                        curSub = L.F("p.signal", _snap.Current.Signal);
                     }
                 }
             }
 
-            string[] labels = new string[] { "已保存网络", "当前连接", "含密码", "开放网络" };
+            string[] labels = new string[]
+            {
+                L.T("p.saved"), L.T("p.current"), L.T("p.withKey"), L.T("p.open")
+            };
             string[] values = new string[] { total.ToString(), curSsid, withKey.ToString(), open.ToString() };
             string[] subs = new string[]
             {
-                "自动连接 " + auto + " 个",
+                L.F("p.autoCount", auto),
                 curSub,
-                "双击一行即可查看",
-                open > 0 ? "无密码保护，连接即用" : "全部网络均有密码"
+                L.T("p.dblClick"),
+                open > 0 ? L.T("p.openHint") : L.T("p.allKeyHint")
             };
             bool[] compact = new bool[] { false, true, false, false };
 
@@ -190,16 +193,18 @@ namespace WifiList
             int textY = ringY + (ringD - textH) / 2;
             Ui.Text(g, pct + "%", Ui.FRing, Ui.Fg,
                 new Rectangle(ringX, textY, ringD, Ui.FRing.Height + Ui.Z(2)), Ui.CenterTop);
-            Ui.Text(g, "信号", Ui.FCardSub, Ui.Mute,
+            Ui.Text(g, L.T("c.signal"), Ui.FCardSub, Ui.Mute,
                 new Rectangle(ringX, textY + Ui.FRing.Height + Ui.Z(1), ringD,
                     Ui.FCardSub.Height + Ui.Z(2)), Ui.CenterTop);
 
             // ---- name block ----
             int midX = padL + Ui.Z(96);
-            Ui.Text(g, "当前连接", Ui.FKey, Ui.Mute,
+            Ui.Text(g, L.T("c.label"), Ui.FKey, Ui.Mute,
                 new Rectangle(midX, y0, Ui.Z(280), kH), Ui.LeftTop);
 
-            string ssid = ci.Connected ? (ci.Ssid.Length > 0 ? ci.Ssid : "已连接") : "未连接无线网络";
+            string ssid = ci.Connected
+                ? (ci.Ssid.Length > 0 ? ci.Ssid : L.T("c.connected"))
+                : L.T("c.none");
             int ssidY = y0 + kH;
             Ui.Text(g, ssid, Ui.FSsid, Ui.Fg,
                 new Rectangle(midX, ssidY, Ui.Z(288), Ui.FSsid.Height + Ui.Z(2)), Ui.LeftTop);
@@ -207,7 +212,7 @@ namespace WifiList
             if (ci.Connected)
             {
                 int lineY = ssidY + Ui.FSsid.Height + Ui.Z(1);
-                Ui.Text(g, ci.Bssid.Length > 0 ? ci.Bssid : "BSSID 未知", Ui.FMono, Ui.Mute,
+                Ui.Text(g, ci.Bssid.Length > 0 ? ci.Bssid : L.T("c.bssidUnknown"), Ui.FMono, Ui.Mute,
                     new Rectangle(midX, lineY, Ui.Z(288), Ui.FMono.Height + Ui.Z(2)), Ui.LeftTop);
                 if (ci.Adapter.Length > 0)
                 {
@@ -224,7 +229,7 @@ namespace WifiList
                 int nw = this.Width - nx - padL;
                 if (nw > Ui.Z(80))
                 {
-                    Ui.Text(g, "连接任意无线网络后，这里会显示 IP、网关、DNS 与链路速率。",
+                    Ui.Text(g, L.T("c.empty"),
                         Ui.FEmpty, Ui.Mute,
                         new Rectangle(nx, y0 + Ui.Z(6), nw, Ui.FEmpty.Height + Ui.Z(2)), Ui.LeftTop);
                 }
@@ -252,9 +257,9 @@ namespace WifiList
             string dns = ci.Dns.Count > 0 ? string.Join(", ", ci.Dns.ToArray()) : "-";
             string rssi = ci.HasRssi ? ci.Rssi + " dBm" : "-";
 
-            string[] k1 = new string[] { "IP 地址", "网关", "DNS" };
+            string[] k1 = new string[] { L.T("c.ip"), L.T("c.gw"), L.T("c.dns") };
             string[] v1 = new string[] { Safe(ci.Ip), Safe(ci.Gateway), dns };
-            string[] k2 = new string[] { "链路速率", "安全类型", "RSSI" };
+            string[] k2 = new string[] { L.T("c.speed"), L.T("c.security"), "RSSI" };
             string[] v2 = new string[] { Safe(ci.Speed), secText, rssi };
 
             int row2 = y0 + kH + vH + Ui.Z(12);

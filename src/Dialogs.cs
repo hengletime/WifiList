@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics;
 using System.Drawing;
 using System.Windows.Forms;
 
@@ -179,7 +180,7 @@ namespace WifiList
         {
             _title = title == null ? "" : title;
             _message = message == null ? "" : message;
-            _okText = okText == null ? "确定" : okText;
+            _okText = okText == null ? L.T("btn.confirm") : okText;
             _ask = ask;
             _danger = danger;
 
@@ -227,7 +228,7 @@ namespace WifiList
 
             if (_ask)
             {
-                _btnCancel = Ui.MakeButton("取消", false);
+                _btnCancel = Ui.MakeButton(L.T("btn.cancel"), false);
                 _btnCancel.Click += delegate
                 {
                     this.DialogResult = DialogResult.Cancel;
@@ -250,11 +251,13 @@ namespace WifiList
             int btnH = Ui.Z(30);
             int btnY = this.ClientSize.Height - Ui.Z(20) - btnH;
             int rx = this.ClientSize.Width - pad;
-            _btnOk.SetBounds(rx - Ui.Z(88), btnY, Ui.Z(88), btnH);
-            rx -= Ui.Z(88) + Ui.Z(8);
+            int wOk = Math.Max(Ui.Z(88), Ui.TextW(_okText, Ui.FBtnBold) + Ui.Z(28));
+            _btnOk.SetBounds(rx - wOk, btnY, wOk, btnH);
+            rx -= wOk + Ui.Z(8);
             if (_btnCancel != null)
             {
-                _btnCancel.SetBounds(rx - Ui.Z(76), btnY, Ui.Z(76), btnH);
+                int wCancel = Math.Max(Ui.Z(76), Ui.TextW(_btnCancel.Text, Ui.FBtn) + Ui.Z(28));
+                _btnCancel.SetBounds(rx - wCancel, btnY, wCancel, btnH);
             }
         }
 
@@ -283,7 +286,7 @@ namespace WifiList
     {
         public static void Info(IWin32Window owner, string title, string message)
         {
-            using (MessageForm f = new MessageForm(title, message, "知道了", false, false))
+            using (MessageForm f = new MessageForm(title, message, L.T("btn.ok"), false, false))
             {
                 f.ShowDialog(owner);
             }
@@ -315,13 +318,13 @@ namespace WifiList
 
         private static readonly string[] AuthCodes = new string[] { "WPA2PSK", "WPA3SAE", "WPAPSK", "open" };
         private static readonly string[] EncCodes = new string[] { "AES", "AES", "TKIP", "none" };
-        private static readonly string[] AuthNames = new string[]
+        private static string[] AuthNames()
         {
-            "WPA2-PSK（AES）· 最常用",
-            "WPA3-SAE（AES）· 更安全",
-            "WPA-PSK（TKIP）· 兼容老设备",
-            "开放网络（无密码）"
-        };
+            return new string[]
+            {
+                L.T("d.auth0"), L.T("d.auth1"), L.T("d.auth2"), L.T("d.auth3")
+            };
+        }
 
         private int _authIndex = 0;
 
@@ -342,16 +345,16 @@ namespace WifiList
         private Rectangle _lblSsid;
         private Rectangle _lblAuth;
         private Rectangle _lblKey;
-        private string _lblKeyText = "密码（8–63 位）";
+        private string _lblKeyText = L.T("d.key");
 
-        private string _title = "添加 WiFi";
+        private string _title = L.T("d.addTitle");
 
 
         public AddWifiForm()
         {
             this.CaptionHeight = 42;
             this.AllowResize = false;
-            this.Text = "添加 WiFi";
+            this.Text = L.T("d.addTitle");
             this.KeyPreview = true;
             this.StartPosition = FormStartPosition.CenterParent;
             this.ClientSize = new Size(Ui.Z(470), Ui.Z(368));
@@ -379,33 +382,33 @@ namespace WifiList
             _hostKey.Box.Enter += delegate { CloseDrop(); };
             this.Controls.Add(_hostKey);
 
-            _btnShow = Ui.MakeButton("显示密码", false);
+            _btnShow = Ui.MakeButton(L.T("d.showKey"), false);
             _btnShow.Click += delegate { ToggleKeyVisible(); };
             this.Controls.Add(_btnShow);
 
             _chipHidden = new ChipToggle();
-            _chipHidden.Text = "隐藏网络";
+            _chipHidden.Text = L.T("d.chipHidden");
             _chipHidden.Toggled += delegate { CloseDrop(); };
             this.Controls.Add(_chipHidden);
 
             _chipAuto = new ChipToggle();
-            _chipAuto.Text = "自动连接";
+            _chipAuto.Text = L.T("d.chipAuto");
             _chipAuto.On = true;
             _chipAuto.Toggled += delegate { CloseDrop(); };
             this.Controls.Add(_chipAuto);
 
             _chipConnect = new ChipToggle();
-            _chipConnect.Text = "保存后连接";
+            _chipConnect.Text = L.T("d.chipConnect");
             _chipConnect.On = true;
             _chipConnect.Toggled += delegate { CloseDrop(); };
             this.Controls.Add(_chipConnect);
 
-            _btnSave = Ui.MakeButton("保存", true);
+            _btnSave = Ui.MakeButton(L.T("d.save"), true);
             _btnSave.Click += OnSave;
             this.Controls.Add(_btnSave);
             this.AcceptButton = _btnSave;
 
-            _btnCancel = Ui.MakeButton("取消", false);
+            _btnCancel = Ui.MakeButton(L.T("btn.cancel"), false);
             _btnCancel.Click += delegate { this.DialogResult = DialogResult.Cancel; this.Close(); };
             this.Controls.Add(_btnCancel);
             this.CancelButton = _btnCancel;
@@ -414,7 +417,7 @@ namespace WifiList
             _drop.Picked += delegate
             {
                 int i = _drop.PickedIndex;
-                if (i >= 0 && i < AuthNames.Length)
+                if (i >= 0 && i < AuthNames().Length)
                 {
                     _authIndex = i;
                     UpdateAuthUi();
@@ -423,6 +426,18 @@ namespace WifiList
             this.Controls.Add(_drop);
 
             UpdateAuthUi();
+
+            // the three chips must fit side by side in every language
+            int chips = Ui.TextW(L.T("d.chipHidden"), Ui.FSub) + Ui.TextW(L.T("d.chipAuto"), Ui.FSub) +
+                Ui.TextW(L.T("d.chipConnect"), Ui.FSub) + Ui.Z(44) * 3 + Ui.Z(16);
+            int needW = chips + Ui.Z(Pad) * 2;
+            if (needW > this.ClientSize.Width)
+            {
+                this.ClientSize = new Size(needW, this.ClientSize.Height);
+                this.MinimumSize = this.ClientSize;
+                this.MaximumSize = this.ClientSize;
+            }
+
             ApplyTheme();
             LayoutChildren();
         }
@@ -434,8 +449,8 @@ namespace WifiList
         public AddWifiForm(WifiEntry existing)
             : this()
         {
-            _title = "编辑 WiFi";
-            this.Text = "编辑 WiFi";
+            _title = L.T("d.editTitle");
+            this.Text = L.T("d.editTitle");
 
             _chipHidden.On = existing.Hidden;
             _chipAuto.On = string.Equals(existing.Mode, "auto", StringComparison.OrdinalIgnoreCase);
@@ -446,7 +461,7 @@ namespace WifiList
 
             _hostSsid.Box.Text = existing.Ssid;
             _hostKey.Box.Text = existing.Key;
-            _btnSave.Text = "保存修改";
+            _btnSave.Text = L.T("d.saveEdit");
 
             this.Invalidate();
         }
@@ -467,9 +482,10 @@ namespace WifiList
         {
             if (_drop == null) return;
             int itemH = Ui.Z(32);
+            string[] names = AuthNames();
             Rectangle box = new Rectangle(_btnAuth.Left, _btnAuth.Bottom + Ui.Z(3), _btnAuth.Width,
-                itemH * AuthNames.Length + Ui.Z(8));
-            _drop.ShowList(box, AuthNames, itemH, _authIndex);
+                itemH * names.Length + Ui.Z(8));
+            _drop.ShowList(box, names, itemH, _authIndex);
             _drop.BringToFront();
         }
 
@@ -496,7 +512,7 @@ namespace WifiList
 
         private void UpdateAuthUi()
         {
-            _btnAuth.Text = AuthNames[_authIndex];
+            _btnAuth.Text = AuthNames()[_authIndex];
             _btnAuth.Invalidate();
 
             bool open = AuthCodes[_authIndex] == "open";
@@ -508,9 +524,9 @@ namespace WifiList
             if (open)
             {
                 _hostKey.Box.Clear();
-                _btnShow.Text = "显示密码";
+                _btnShow.Text = L.T("d.showKey");
             }
-            _lblKeyText = open ? "密码（开放网络无需密码）" : "密码（8–63 位）";
+            _lblKeyText = open ? L.T("d.keyOpen") : L.T("d.key");
 
             Ui.StyleButton(_btnShow, false);
             if (open) _btnShow.ForeColor = Ui.Mute;
@@ -521,7 +537,7 @@ namespace WifiList
         {
             bool showing = _hostKey.Box.PasswordChar == '\0';
             _hostKey.Box.PasswordChar = showing ? '\u25CF' : '\0';
-            _btnShow.Text = showing ? "显示密码" : "隐藏密码";
+            _btnShow.Text = showing ? L.T("d.showKey") : L.T("d.hideKey");
         }
 
         protected override void OnShown(EventArgs e)
@@ -580,15 +596,21 @@ namespace WifiList
             y += boxH + Ui.Z(16);
 
             int chipH = Ui.Z(30);
-            _chipHidden.SetBounds(pad, y, Ui.Z(104), chipH);
-            _chipAuto.SetBounds(pad + Ui.Z(112), y, Ui.Z(104), chipH);
-            _chipConnect.SetBounds(pad + Ui.Z(224), y, Ui.Z(118), chipH);
+            int cx = pad;
+            int wHidden = Math.Max(Ui.Z(104), Ui.TextW(_chipHidden.Text, Ui.FSub) + Ui.Z(44));
+            int wAuto = Math.Max(Ui.Z(104), Ui.TextW(_chipAuto.Text, Ui.FSub) + Ui.Z(44));
+            int wConnect = Math.Max(Ui.Z(118), Ui.TextW(_chipConnect.Text, Ui.FSub) + Ui.Z(44));
+            _chipHidden.SetBounds(cx, y, wHidden, chipH); cx += wHidden + Ui.Z(8);
+            _chipAuto.SetBounds(cx, y, wAuto, chipH); cx += wAuto + Ui.Z(8);
+            _chipConnect.SetBounds(cx, y, wConnect, chipH);
 
             int btnH = Ui.Z(30);
             int btnY = this.ClientSize.Height - Ui.Z(20) - btnH;
             int rx = this.ClientSize.Width - pad;
-            _btnSave.SetBounds(rx - Ui.Z(84), btnY, Ui.Z(84), btnH);
-            _btnCancel.SetBounds(rx - Ui.Z(84) - Ui.Z(8) - Ui.Z(76), btnY, Ui.Z(76), btnH);
+            int wSave = Math.Max(Ui.Z(84), Ui.TextW(_btnSave.Text, Ui.FBtnBold) + Ui.Z(28));
+            int wCancel = Math.Max(Ui.Z(76), Ui.TextW(_btnCancel.Text, Ui.FBtn) + Ui.Z(28));
+            _btnSave.SetBounds(rx - wSave, btnY, wSave, btnH);
+            _btnCancel.SetBounds(rx - wSave - Ui.Z(8) - wCancel, btnY, wCancel, btnH);
         }
 
         protected override void OnPaint(PaintEventArgs e)
@@ -606,8 +628,8 @@ namespace WifiList
                 g.DrawLine(pen, pad, CapH - 1, this.ClientSize.Width - pad, CapH - 1);
             }
 
-            Ui.Text(g, "网络名称（SSID）", Ui.FKey, Ui.Mute, _lblSsid, Ui.LeftTop);
-            Ui.Text(g, "安全类型", Ui.FKey, Ui.Mute, _lblAuth, Ui.LeftTop);
+            Ui.Text(g, L.T("d.ssid"), Ui.FKey, Ui.Mute, _lblSsid, Ui.LeftTop);
+            Ui.Text(g, L.T("d.security"), Ui.FKey, Ui.Mute, _lblAuth, Ui.LeftTop);
             Ui.Text(g, _lblKeyText, Ui.FKey, Ui.Mute, _lblKey, Ui.LeftTop);
         }
 
@@ -616,13 +638,13 @@ namespace WifiList
             string ssid = _hostSsid.Box.Text.Trim();
             if (ssid.Length == 0)
             {
-                Prompt.Info(this, "无法保存", "请输入网络名称（SSID）。");
+                Prompt.Info(this, L.T("d.cannotSave"), L.T("d.errNoSsid"));
                 _hostSsid.Box.Focus();
                 return;
             }
             if (System.Text.Encoding.UTF8.GetByteCount(ssid) > 32)
             {
-                Prompt.Info(this, "无法保存", "网络名称过长，最多 32 个字节（中文约 10 个字）。");
+                Prompt.Info(this, L.T("d.cannotSave"), L.T("d.errSsidLong"));
                 _hostSsid.Box.Focus();
                 return;
             }
@@ -634,7 +656,7 @@ namespace WifiList
             {
                 if (key.Length < 8 || key.Length > 63)
                 {
-                    Prompt.Info(this, "无法保存", "WPA 密码长度需为 8–63 个字符。\r\n\r\n当前长度：" + key.Length + " 个字符。");
+                    Prompt.Info(this, L.T("d.cannotSave"), L.F("d.errKeyLen", key.Length));
                     _hostKey.Box.Focus();
                     return;
                 }
@@ -650,6 +672,276 @@ namespace WifiList
 
             this.DialogResult = DialogResult.OK;
             this.Close();
+        }
+    }
+
+    /// <summary>About box: identity, runtime facts and the privacy note.</summary>
+    internal sealed class AboutForm : ChromeForm
+    {
+        private const int Pad = 22;
+        private const string HomePage = "https://github.com/hengletime/WifiList";
+
+        private enum UpdState
+        {
+            Checking,
+            Latest,
+            Newer,
+            Failed
+        }
+
+        private readonly WifiSnapshot _snap;
+        private readonly int _tagH;
+        private readonly int _privH;
+        private readonly int _rowsY;
+        private readonly int _updY;
+
+        private Button _btnClose;
+        private Button _btnHome;
+        private Button _btnCopy;
+        private Button _btnUpd;
+        private GlyphButton _btnX;
+
+        private UpdState _updState = UpdState.Checking;
+        private string _updText = "";
+        private string _updUrl = "";
+        private bool _checking;
+
+        public AboutForm(WifiSnapshot snap)
+        {
+            _snap = snap;
+
+            this.CaptionHeight = 42;
+            this.AllowResize = false;
+            this.Text = L.T("ab.title");
+            this.KeyPreview = true;
+            this.StartPosition = FormStartPosition.CenterParent;
+
+            int wClient = Ui.Z(516);
+            int textW = wClient - Ui.Z(Pad) * 2;
+
+            _tagH = Measure(L.T("ab.tagline"), textW);
+            _privH = Measure(L.T("ab.privacy"), textW);
+
+            int updH = Ui.Z(26);
+            int head = CapH + Ui.Z(16) + Ui.Z(46) + Ui.Z(12);
+            _rowsY = head + _tagH + Ui.Z(16);
+            int rowH = Ui.FVal.Height + Ui.Z(7);
+            _updY = _rowsY + rowH * 5 + Ui.Z(14);
+            int h = _updY + updH + Ui.Z(12) + _privH + Ui.Z(16) + Ui.Z(30) + Ui.Z(20);
+
+            this.ClientSize = new Size(wClient, h);
+            this.MinimumSize = this.ClientSize;
+            this.MaximumSize = this.ClientSize;
+
+            _btnX = new GlyphButton(GlyphKind.Close);
+            _btnX.DangerHover = true;
+            _btnX.Click += delegate { this.Close(); };
+            this.Controls.Add(_btnX);
+
+            _btnCopy = Ui.MakeButton(L.T("ab.copy"), false);
+            _btnCopy.Click += delegate { CopyInfo(); };
+            this.Controls.Add(_btnCopy);
+
+            _btnUpd = Ui.MakeButton(L.T("ab.check"), false);
+            _btnUpd.Click += delegate { OnUpdateClick(); };
+            this.Controls.Add(_btnUpd);
+
+            _btnHome = Ui.MakeButton(L.T("ab.openHome"), false);
+            _btnHome.Click += delegate { OpenHome(); };
+            this.Controls.Add(_btnHome);
+
+            _btnClose = Ui.MakeButton(L.T("ab.close"), true);
+            _btnClose.Click += delegate { this.Close(); };
+            this.Controls.Add(_btnClose);
+            this.AcceptButton = _btnClose;
+            this.CancelButton = _btnClose;
+
+            LayoutChildren();
+        }
+
+        private static int Measure(string text, int width)
+        {
+            Size sz = TextRenderer.MeasureText(text, Ui.FSub, new Size(width, Ui.Z(2000)),
+                TextFormatFlags.WordBreak | TextFormatFlags.NoPadding);
+            return Math.Max(Ui.Z(18), sz.Height);
+        }
+
+        private void LayoutChildren()
+        {
+            int pad = Ui.Z(Pad);
+            int cw = Ui.Z(30);
+            int ch = Ui.Z(26);
+            _btnX.SetBounds(this.ClientSize.Width - pad - cw, (CapH - ch) / 2, cw, ch);
+
+            int btnH = Ui.Z(30);
+            int btnY = this.ClientSize.Height - Ui.Z(20) - btnH;
+            int rx = this.ClientSize.Width - pad;
+
+            int wClose = Math.Max(Ui.Z(84), Ui.TextW(_btnClose.Text, Ui.FBtnBold) + Ui.Z(28));
+            int wHome = Math.Max(Ui.Z(126), Ui.TextW(_btnHome.Text, Ui.FBtn) + Ui.Z(28));
+            int wCopy = Math.Max(Ui.Z(122), Ui.TextW(L.T("ab.copy"), Ui.FBtn) + Ui.Z(28));
+            _btnClose.SetBounds(rx - wClose, btnY, wClose, btnH);
+            rx -= wClose + Ui.Z(8);
+            _btnHome.SetBounds(rx - wHome, btnY, wHome, btnH);
+            rx -= wHome + Ui.Z(8);
+            _btnCopy.SetBounds(pad, btnY, wCopy, btnH);
+
+            int wUpd = Math.Max(Ui.Z(96), Ui.TextW(_btnUpd.Text, Ui.FBtn) + Ui.Z(26));
+            _btnUpd.SetBounds(this.ClientSize.Width - pad - wUpd, _updY - Ui.Z(4), wUpd, Ui.Z(26));
+        }
+
+        protected override void OnShown(EventArgs e)
+        {
+            base.OnShown(e);
+            StartCheck();
+        }
+
+        /// <summary>Runs the network lookup off the UI thread: opening About must never block.</summary>
+        private void StartCheck()
+        {
+            if (_checking) return;
+
+            _checking = true;
+            _updState = UpdState.Checking;
+            _updText = L.T("ab.checking");
+            _updUrl = "";
+            _btnUpd.Text = L.T("ab.check");
+            _btnUpd.Enabled = false;
+            LayoutChildren();
+            this.Invalidate();
+
+            System.Threading.ThreadPool.QueueUserWorkItem(delegate
+            {
+                ReleaseInfo info = UpdateCheck.Latest(6000);
+                try
+                {
+                    this.BeginInvoke((MethodInvoker)delegate { ApplyRelease(info); });
+                }
+                catch { }
+            });
+        }
+
+        private void ApplyRelease(ReleaseInfo info)
+        {
+            _checking = false;
+            if (this.IsDisposed) return;
+
+            if (info == null)
+            {
+                _updState = UpdState.Failed;
+                _updText = L.T("ab.checkFailed");
+                _btnUpd.Text = L.T("ab.recheck");
+                _btnUpd.Enabled = true;
+                _updUrl = "";
+            }
+            else if (UpdateCheck.IsNewer(info.Version))
+            {
+                _updState = UpdState.Newer;
+                _updText = L.F("ab.newVersion", "v" + info.Version.ToString(3));
+                _btnUpd.Text = L.T("ab.download");
+                _btnUpd.Enabled = true;
+                _updUrl = info.Url.Length > 0 ? info.Url : UpdateCheck.ReleasesPage;
+            }
+            else
+            {
+                _updState = UpdState.Latest;
+                _updText = L.F("ab.upToDate", "v" + Ui.Version);
+                _btnUpd.Text = L.T("ab.recheck");
+                _btnUpd.Enabled = true;
+                _updUrl = "";
+            }
+
+            LayoutChildren();
+            this.Invalidate();
+        }
+
+        private void OnUpdateClick()
+        {
+            if (_updState == UpdState.Newer)
+            {
+                try { Process.Start(_updUrl); } catch { }
+                return;
+            }
+            StartCheck();
+        }
+
+        private void CopyInfo()
+        {
+            try
+            {
+                Clipboard.SetText(L.T("app.title") + " v" + Ui.Version + "\r\n" + HomePage +
+                    "\r\n" + Environment.OSVersion.VersionString + "  ·  .NET " + Environment.Version +
+                    "\r\n" + Environment.MachineName);
+                _btnCopy.Text = L.T("ab.copied");
+            }
+            catch { }
+        }
+
+        private void OpenHome()
+        {
+            try
+            {
+                Process.Start(HomePage);
+            }
+            catch { }
+        }
+
+        private void Row(Graphics g, int pad, int w, ref int y, string key, string val)
+        {
+            int kw = Ui.Z(104);
+            int h = Ui.FVal.Height + Ui.Z(2);
+            Ui.Text(g, key, Ui.FKey, Ui.Mute, new Rectangle(pad, y, kw - Ui.Z(8), h), Ui.LeftTop);
+            Ui.Text(g, val, Ui.FVal, Ui.Dim, new Rectangle(pad + kw, y, w - kw, h), Ui.LeftTop);
+            y += h + Ui.Z(5);
+        }
+
+        protected override void OnPaint(PaintEventArgs e)
+        {
+            base.OnPaint(e);
+            Graphics g = e.Graphics;
+            int pad = Ui.Z(Pad);
+            int w = this.ClientSize.Width - pad * 2;
+
+            Ui.Text(g, L.T("ab.title"), Ui.FTitle, Ui.Fg,
+                new Rectangle(pad, Ui.Z(9), w - Ui.Z(40), Ui.FTitle.Height + Ui.Z(2)), Ui.LeftTop);
+            using (Pen pen = new Pen(Ui.Line, 1F))
+            {
+                g.DrawLine(pen, pad, CapH - 1, this.ClientSize.Width - pad, CapH - 1);
+            }
+
+            int y = CapH + Ui.Z(16);
+            int logo = Ui.Z(46);
+            Ui.DrawLogo(g, new Rectangle(pad, y, logo, logo));
+
+            int tx = pad + logo + Ui.Z(14);
+            int tw = w - logo - Ui.Z(14);
+            Ui.Text(g, L.T("app.title"), Ui.FTitle, Ui.Fg,
+                new Rectangle(tx, y + Ui.Z(1), tw, Ui.FTitle.Height + Ui.Z(2)), Ui.LeftTop);
+            Ui.Text(g, "v" + Ui.Version, Ui.FSub, Ui.Mute,
+                new Rectangle(tx, y + Ui.Z(4) + Ui.FTitle.Height, tw, Ui.FSub.Height + Ui.Z(2)), Ui.LeftTop);
+
+            y += logo + Ui.Z(12);
+            TextRenderer.DrawText(g, L.T("ab.tagline"), Ui.FSub, new Rectangle(pad, y, w, _tagH),
+                Ui.Dim, TextFormatFlags.WordBreak | TextFormatFlags.NoPadding | TextFormatFlags.NoPrefix);
+
+            y = _rowsY;
+            Row(g, pad, w, ref y, L.T("ab.version"), "v" + Ui.Version);
+            Row(g, pad, w, ref y, L.T("ab.host"), Environment.MachineName);
+            Row(g, pad, w, ref y, L.T("ab.os"), Environment.OSVersion.VersionString);
+            Row(g, pad, w, ref y, L.T("ab.clr"), ".NET " + Environment.Version);
+            Row(g, pad, w, ref y, L.T("ab.nets"),
+                _snap == null ? "-" : _snap.Nets.Count.ToString());
+
+            y = _updY;
+            Color updInk = _updState == UpdState.Newer ? Ui.Accent : Ui.Mute;
+            if (_updState == UpdState.Latest) updInk = Ui.Dim;
+            Ui.Text(g, _updText, Ui.FSub, updInk,
+                new Rectangle(pad, y + Ui.Z(4), Math.Max(Ui.Z(80), w - Ui.Z(112)), Ui.FSub.Height + Ui.Z(2)),
+                Ui.LeftTop);
+
+            y += Ui.Z(26) + Ui.Z(12);
+            TextRenderer.DrawText(g, L.T("ab.privacy"), Ui.FSub, new Rectangle(pad, y, w, _privH),
+                Ui.Mute, TextFormatFlags.WordBreak | TextFormatFlags.NoPadding | TextFormatFlags.NoPrefix);
         }
     }
 }

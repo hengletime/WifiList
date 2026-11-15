@@ -68,7 +68,9 @@ namespace WifiList
         Moon,
         Minimum,
         Close,
-        Refresh
+        Refresh,
+        Globe,
+        Info
     }
 
     /// <summary>
@@ -86,23 +88,57 @@ namespace WifiList
         public static Color Ok, Info, Warn, Danger;
         public static Color SelBg, Hover, GlyphInk;
 
-        // fonts (app lifetime; not disposed on purpose)
-        public static readonly Font FTitle = new Font("Microsoft YaHei UI", 12.5F, FontStyle.Bold);
-        public static readonly Font FSub = new Font("Microsoft YaHei UI", 8.75F);
-        public static readonly Font FCardLabel = new Font("Microsoft YaHei UI", 8.25F);
-        public static readonly Font FCardValue = new Font("Microsoft YaHei UI", 16.5F, FontStyle.Bold);
-        public static readonly Font FCardValueSm = new Font("Microsoft YaHei UI", 11.25F, FontStyle.Bold);
-        public static readonly Font FCardSub = new Font("Microsoft YaHei UI", 8F);
-        public static readonly Font FSsid = new Font("Microsoft YaHei UI", 11.25F, FontStyle.Bold);
-        public static readonly Font FBig = new Font("Microsoft YaHei UI", 17.5F, FontStyle.Bold);
-        public static readonly Font FRing = new Font("Microsoft YaHei UI", 12F, FontStyle.Bold);
-        public static readonly Font FMono = new Font("Consolas", 8.25F);
-        public static readonly Font FVal = new Font("Consolas", 8.75F);
-        public static readonly Font FKey = new Font("Microsoft YaHei UI", 7.75F);
-        public static readonly Font FBtn = new Font("Microsoft YaHei UI", 8.75F);
-        public static readonly Font FBtnBold = new Font("Microsoft YaHei UI", 8.75F, FontStyle.Bold);
-        public static readonly Font FGrid = new Font("Microsoft YaHei UI", 9F);
-        public static readonly Font FEmpty = new Font("Microsoft YaHei UI", 8.75F);
+        // fonts. Rebuilt whenever the interface language changes, because every
+        // script needs its own family: YaHei has no Thai, Segoe UI has no CJK,
+        // Leelawadee UI has both Thai and Latin.
+        public static Font FTitle, FSub, FCardLabel, FCardValue, FCardValueSm, FCardSub;
+        public static Font FSsid, FBig, FRing, FMono, FVal, FKey, FBtn, FBtnBold;
+        public static Font FGrid, FEmpty;
+
+        /// <summary>Base UI family for the active language.</summary>
+        private static string Family()
+        {
+            if (L.Current == UiLang.En) return "Segoe UI";
+            if (L.Current == UiLang.Th) return "Leelawadee UI";
+            return "Microsoft YaHei UI";
+        }
+
+        private static Font Nf(float size, FontStyle style)
+        {
+            try
+            {
+                return new Font(Family(), size, style, GraphicsUnit.Point);
+            }
+            catch
+            {
+                return new Font(FontFamily.GenericSansSerif, size, style, GraphicsUnit.Point);
+            }
+        }
+
+        /// <summary>(Re)creates the font set. Old instances are dropped on purpose:
+        /// controls that still hold them are rebuilt by the caller.</summary>
+        public static void LoadFonts()
+        {
+            FTitle = Nf(12.5F, FontStyle.Bold);
+            FSub = Nf(8.75F, FontStyle.Regular);
+            FCardLabel = Nf(8.25F, FontStyle.Regular);
+            FCardValue = Nf(16.5F, FontStyle.Bold);
+            FCardValueSm = Nf(11.25F, FontStyle.Bold);
+            FCardSub = Nf(8F, FontStyle.Regular);
+            FSsid = Nf(11.25F, FontStyle.Bold);
+            FBig = Nf(17.5F, FontStyle.Bold);
+            FRing = Nf(12F, FontStyle.Bold);
+            FKey = Nf(7.75F, FontStyle.Regular);
+            FBtn = Nf(8.75F, FontStyle.Regular);
+            FBtnBold = Nf(8.75F, FontStyle.Bold);
+            FGrid = Nf(9F, FontStyle.Regular);
+            FEmpty = Nf(8.75F, FontStyle.Regular);
+
+            // monospaced families cover Latin and digits only; SSIDs and MAC
+            // addresses are rendered with the proportional fonts instead
+            FMono = new Font("Consolas", 8.25F);
+            FVal = new Font("Consolas", 8.75F);
+        }
 
         public const TextFormatFlags LeftTop =
             TextFormatFlags.Left | TextFormatFlags.Top | TextFormatFlags.NoPadding |
@@ -116,7 +152,7 @@ namespace WifiList
             TextFormatFlags.HorizontalCenter | TextFormatFlags.Top | TextFormatFlags.NoPadding |
             TextFormatFlags.SingleLine;
 
-        public const string Version = "1.3.0";
+        public const string Version = "1.6.1";
 
         // ---- DPI helpers -------------------------------------------------
         // Every layout and paint constant is written in 96 dpi "design" units
@@ -143,6 +179,7 @@ namespace WifiList
 
         static Ui()
         {
+            LoadFonts();
             Load(UiTheme.Dark);
         }
 
@@ -332,6 +369,14 @@ namespace WifiList
             g.SmoothingMode = old;
         }
 
+        /// <summary>Pixel width of a single line of text in the active language.</summary>
+        public static int TextW(string text, Font font)
+        {
+            if (text == null || text.Length == 0) return 0;
+            return TextRenderer.MeasureText(text, font, new Size(4096, 4096),
+                TextFormatFlags.SingleLine | TextFormatFlags.NoPadding).Width;
+        }
+
         public static void Text(Graphics g, string text, Font font, Color color, Rectangle bounds, TextFormatFlags flags)
         {
             TextRenderer.DrawText(g, text == null ? "" : text, font, bounds, color, flags);
@@ -388,7 +433,37 @@ namespace WifiList
             m.Font = FSub;
             m.ShowImageMargin = false;
             m.ShowCheckMargin = false;
-            m.Renderer = new UiMenuRenderer();
+            m.Renderer = MenuRenderer();
+            m.Padding = new Padding(0, Z(4), 0, Z(4));
+        }
+
+        private static UiMenuRenderer _menuRenderer;
+
+        /// <summary>One renderer instance shared by the menu and every submenu.</summary>
+        public static UiMenuRenderer MenuRenderer()
+        {
+            if (_menuRenderer == null) _menuRenderer = new UiMenuRenderer();
+            return _menuRenderer;
+        }
+
+        /// <summary>
+        /// Builds a menu item with a little vertical air. Native items are only
+        /// as tall as their text, which is what made the grid context menu look
+        /// cramped.
+        /// </summary>
+        public static ToolStripMenuItem MenuItem(string text)
+        {
+            ToolStripMenuItem mi = new ToolStripMenuItem(text);
+            mi.ForeColor = Fg;
+            mi.Padding = new Padding(0, Z(3), 0, Z(3));
+            return mi;
+        }
+
+        public static ToolStripSeparator MenuSeparator()
+        {
+            ToolStripSeparator sep = new ToolStripSeparator();
+            sep.Margin = new Padding(0, Z(3), 0, Z(3));
+            return sep;
         }
 
         public static void StyleButton(Button b, bool primary)
@@ -584,6 +659,21 @@ namespace WifiList
                     using (SolidBrush b = new SolidBrush(ink))
                     {
                         g.FillPolygon(b, tri);
+                    }
+                }
+                else if (Kind == GlyphKind.Globe)
+                {
+                    g.DrawEllipse(pen, cx - 5.4F * k, cy - 5.4F * k, 10.8F * k, 10.8F * k);
+                    g.DrawLine(pen, cx - 5.4F * k, cy, cx + 5.4F * k, cy);
+                    g.DrawEllipse(pen, cx - 2.5F * k, cy - 5.4F * k, 5F * k, 10.8F * k);
+                }
+                else if (Kind == GlyphKind.Info)
+                {
+                    g.DrawEllipse(pen, cx - 5.4F * k, cy - 5.4F * k, 10.8F * k, 10.8F * k);
+                    g.DrawLine(pen, cx, cy - 0.5F * k, cx, cy + 3.6F * k);
+                    using (SolidBrush dot = new SolidBrush(ink))
+                    {
+                        g.FillEllipse(dot, cx - 0.85F * k, cy - 3.9F * k, 1.7F * k, 1.7F * k);
                     }
                 }
             }

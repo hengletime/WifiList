@@ -1,12 +1,12 @@
 @echo off
 setlocal
 cd /d "%~dp0"
-title Build WifiList.exe v1.3.0
+title Build WifiList.exe v1.6.1
 set "LOG=%CD%\build.log"
 
 echo.
 echo   ============================================
-echo    Building WifiList.exe  v1.3.0
+echo    Building WifiList.exe  v1.6.1
 echo    native WinForms app, no installer needed
 echo   ============================================
 echo.
@@ -52,9 +52,9 @@ echo.
  /resource:"assets\template.html",WifiList.Template.html %ICONRES% ^
  /r:System.dll /r:System.Core.dll /r:System.Drawing.dll ^
  /r:System.Windows.Forms.dll /r:System.Xml.dll ^
- "src\AssemblyInfo.cs" "src\Program.cs" "src\UiKit.cs" "src\Chrome.cs" ^
+ "src\AssemblyInfo.cs" "src\Program.cs" "src\Lang.cs" "src\UiKit.cs" "src\Chrome.cs" ^
  "src\Panels.cs" "src\Dialogs.cs" "src\MainForm.cs" ^
- "src\WifiData.cs" "src\HtmlExporter.cs" > "%LOG%" 2>&1
+ "src\WifiData.cs" "src\HtmlExporter.cs" "src\Update.cs" > "%LOG%" 2>&1
 set "RC=%ERRORLEVEL%"
 type "%LOG%"
 
@@ -75,7 +75,7 @@ goto failed
 
 :done
 echo.
-echo   [OK] WifiList.exe v1.3.0 built successfully.
+echo   [OK] WifiList.exe v1.6.1 built successfully.
 echo.
 echo   From now on just double-click WifiList.exe - no rebuild needed.
 echo.

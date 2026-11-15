@@ -8,6 +8,7 @@ using System.Net.NetworkInformation;
 using System.Net.Sockets;
 using System.Text;
 using System.Text.RegularExpressions;
+using System.Threading.Tasks;
 using System.Xml;
 
 namespace WifiList
@@ -33,17 +34,17 @@ namespace WifiList
         public string AuthLabel()
         {
             string a = this.AuthCode;
-            if (a == "OPEN") return "开放网络";
+            if (a == "OPEN") return L.T("a.open");
             if (a == "WPA3SAE") return "WPA3-SAE";
-            if (a == "WPA3ENT192") return "WPA3 企业 192";
-            if (a == "WPA3ENT") return "WPA3 企业";
+            if (a == "WPA3ENT192") return L.T("a.wpa3ent192");
+            if (a == "WPA3ENT") return L.T("a.wpa3ent");
             if (a == "WPA2PSK") return "WPA2-PSK";
-            if (a == "WPA2") return "WPA2 企业";
+            if (a == "WPA2") return L.T("a.wpa2ent");
             if (a == "WPAPSK") return "WPA-PSK";
-            if (a == "WPA") return "WPA 企业";
+            if (a == "WPA") return L.T("a.wpaent");
             if (a == "WEP") return "WEP";
-            if (a == "SHARED") return "WEP 共享";
-            return a.Length == 0 ? "未知" : a;
+            if (a == "SHARED") return L.T("a.shared");
+            return a.Length == 0 ? L.T("a.unknown") : a;
         }
 
         public string SecurityText()
@@ -59,7 +60,7 @@ namespace WifiList
 
         public string ModeLabel()
         {
-            return this.Mode == "auto" ? "自动连接" : "手动连接";
+            return this.Mode == "auto" ? L.T("m.auto") : L.T("m.manual");
         }
 
         /// <summary>Badge colour tier derived from the authentication method.</summary>
@@ -112,10 +113,52 @@ namespace WifiList
 
     internal static class WifiCollector
     {
+        private static byte[] ReadAll(Stream s)
+        {
+            MemoryStream ms = new MemoryStream();
+            byte[] buf = new byte[8192];
+            int n;
+            while ((n = s.Read(buf, 0, buf.Length)) > 0)
+            {
+                ms.Write(buf, 0, n);
+            }
+            return ms.ToArray();
+        }
+
         /// <summary>
-        /// Runs netsh and decodes its output with the system ANSI code page.
-        /// netsh writes localised text in the OEM/ANSI code page, so this is the
-        /// only way to keep non-ASCII SSIDs intact.
+        /// Decodes a netsh byte stream. Current Windows builds send redirected
+        /// netsh output as UTF-8 while older components still use the ANSI code
+        /// page; decoding with the wrong one produced unreadable error dialogs
+        /// ("闂晱鑼囧洖..." style). A strict UTF-8 attempt disambiguates the two,
+        /// because GBK text is almost never valid UTF-8.
+        /// </summary>
+        private static string Decode(byte[] data)
+        {
+            if (data == null || data.Length == 0) return "";
+
+            if (data.Length >= 2 && data[0] == 0xFF && data[1] == 0xFE)
+            {
+                return Encoding.Unicode.GetString(data, 2, data.Length - 2);
+            }
+            if (data.Length >= 3 && data[0] == 0xEF && data[1] == 0xBB && data[2] == 0xBF)
+            {
+                return Encoding.UTF8.GetString(data, 3, data.Length - 3);
+            }
+
+            try
+            {
+                return new UTF8Encoding(false, true).GetString(data);
+            }
+            catch (Exception)
+            {
+                return Encoding.Default.GetString(data);
+            }
+        }
+
+        /// <summary>
+        /// Runs netsh and decodes both streams. Output is captured as raw bytes
+        /// and decoded afterwards, and both pipes are drained in parallel so a
+        /// long error message can never deadlock the read.
         /// </summary>
         public static NetshResult Run(string arguments)
         {
@@ -127,18 +170,28 @@ namespace WifiList
                 psi.UseShellExecute = false;
                 psi.RedirectStandardOutput = true;
                 psi.RedirectStandardError = true;
-                psi.StandardOutputEncoding = Encoding.Default;
-                psi.StandardErrorEncoding = Encoding.Default;
+                psi.StandardOutputEncoding = Encoding.UTF8;
+                psi.StandardErrorEncoding = Encoding.UTF8;
+
                 using (Process p = Process.Start(psi))
                 {
-                    string text = p.StandardOutput.ReadToEnd();
-                    string err = p.StandardError.ReadToEnd();
+                    Task<byte[]> outTask = Task.Factory.StartNew<byte[]>(
+                        delegate { return ReadAll(p.StandardOutput.BaseStream); });
+                    Task<byte[]> errTask = Task.Factory.StartNew<byte[]>(
+                        delegate { return ReadAll(p.StandardError.BaseStream); });
+
                     if (!p.WaitForExit(30000))
                     {
                         try { p.Kill(); } catch { }
                     }
+
+                    string text = "";
+                    string err = "";
+                    if (outTask.Wait(3000)) { try { text = Decode(outTask.Result); } catch { } }
+                    if (errTask.Wait(3000)) { try { err = Decode(errTask.Result); } catch { } }
+
                     result.Text = text;
-                    if (!string.IsNullOrEmpty(err)) result.Text = result.Text + "\n" + err;
+                    if (err.Length > 0) result.Text = result.Text + "\n" + err;
                     try { result.Code = p.ExitCode; } catch { result.Code = 0; }
                 }
             }
@@ -211,7 +264,7 @@ namespace WifiList
 
                 if (snap.Nets.Count == 0)
                 {
-                    snap.Error = "没有导出任何 WiFi 配置。请确认无线网卡已启用，且至少连接过一个网络。";
+                    snap.Error = L.T("w.errNoProfiles");
                 }
             }
             catch (Exception ex)
@@ -311,10 +364,13 @@ namespace WifiList
             return n;
         }
 
-        public static NetworkInfo GetCurrent()
+        /// <summary>
+        /// Picks the interface that actually carries the connection: a physical
+        /// wireless adapter with an address, a gateway and DNS wins, virtual
+        /// adapters (Wi-Fi Direct, VPN taps, Hyper-V) always lose.
+        /// </summary>
+        private static NetworkInterface BestInterface()
         {
-            NetworkInfo info = new NetworkInfo();
-
             NetworkInterface best = null;
             int bestScore = int.MinValue;
 
@@ -356,6 +412,29 @@ namespace WifiList
             }
             catch { }
 
+            return best;
+        }
+
+        /// <summary>
+        /// The name netsh knows the wireless interface by (its connection name,
+        /// e.g. "WLAN"). Passing it explicitly to "wlan connect" avoids netsh
+        /// guessing between the physical adapter and the Wi-Fi Direct one.
+        /// </summary>
+        public static string WirelessInterfaceName()
+        {
+            NetworkInterface ni = BestInterface();
+            if (ni == null) return "";
+            // Only a real wireless adapter is a valid netsh target; when the
+            // winner is Ethernet the caller falls back to netsh's default.
+            if (ni.NetworkInterfaceType != NetworkInterfaceType.Wireless80211) return "";
+            return ni.Name == null ? "" : ni.Name;
+        }
+
+        public static NetworkInfo GetCurrent()
+        {
+            NetworkInfo info = new NetworkInfo();
+
+            NetworkInterface best = BestInterface();
             if (best == null)
             {
                 return info;
@@ -461,8 +540,24 @@ namespace WifiList
 
         public static NetshResult Connect(string ssid)
         {
-            // ssid= helps for hidden networks; the default interface is used.
-            return Run("wlan connect name=\"" + ssid + "\" ssid=\"" + ssid + "\"");
+            return Connect(ssid, "");
+        }
+
+        /// <summary>
+        /// Asks the WLAN service to associate with a saved profile. The
+        /// interface is named explicitly when known: "wlan connect" otherwise
+        /// lets netsh choose, and on machines that also expose the Wi-Fi Direct
+        /// adapter it can answer "无法连接…" while the Windows flyout still works.
+        /// </summary>
+        public static NetshResult Connect(string ssid, string iface)
+        {
+            // ssid= helps for hidden networks; the interface pins the adapter.
+            string args = "wlan connect name=\"" + ssid + "\" ssid=\"" + ssid + "\"";
+            if (iface != null && iface.Length > 0)
+            {
+                args = args + " interface=\"" + iface + "\"";
+            }
+            return Run(args);
         }
 
         public static NetshResult Disconnect()
@@ -505,7 +600,7 @@ namespace WifiList
             if (xmlPath == null || xmlPath.Length == 0 || !File.Exists(xmlPath))
             {
                 NetshResult bad = new NetshResult();
-                bad.Text = "备份文件不存在，无法回滚。";
+                bad.Text = L.T("w.errNoBackup");
                 bad.Code = -1;
                 return bad;
             }

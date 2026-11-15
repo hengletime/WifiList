@@ -46,6 +46,7 @@ namespace WifiList
             string template = ReadTemplate();
             string json = BuildJson(snap);
             string html = template.Replace("/*__WIFI_DATA__*/", json);
+            html = html.Replace("/*__WIFI_LANG__*/", "\"" + LangTag() + "\"");
 
             string dir = Path.GetDirectoryName(outPath);
             if (dir != null && dir.Length > 0 && !Directory.Exists(dir))
@@ -56,13 +57,21 @@ namespace WifiList
             return outPath;
         }
 
+        /// <summary>Language tag handed to the report so it opens in the same language.</summary>
+        private static string LangTag()
+        {
+            if (L.Current == UiLang.En) return "en";
+            if (L.Current == UiLang.Th) return "th";
+            return "zh";
+        }
+
         private static string ReadTemplate()
         {
             Assembly asm = typeof(HtmlExporter).Assembly;
             Stream s = asm.GetManifestResourceStream(TemplateResource);
             if (s == null)
             {
-                throw new InvalidOperationException("内置模板缺失：" + TemplateResource);
+                throw new InvalidOperationException(L.T("html.noTemplate") + " " + TemplateResource);
             }
             using (s)
             {

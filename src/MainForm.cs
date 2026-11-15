@@ -19,6 +19,8 @@ namespace WifiList
 
         private GlyphButton _btnRefresh;
         private GlyphButton _btnTheme;
+        private GlyphButton _btnLang;
+        private GlyphButton _btnAbout;
         private GlyphButton _btnMin;
         private GlyphButton _btnClose;
 
@@ -31,6 +33,7 @@ namespace WifiList
         private CurrentPanel _current;
         private Panel _searchHost;
         private TextBox _txtSearch;
+        private GlyphButton _btnClear;
         private ChipToggle _chipKey;
         private DataGridView _grid;
         private Label _lblStatus;
@@ -45,11 +48,15 @@ namespace WifiList
 
         public MainForm()
         {
-            this.Text = "WiFi 密码清单 v" + Ui.Version;
+            this.Text = L.T("app.title") + " v" + Ui.Version;
             this.CaptionHeight = 48;
             this.ClientSize = new Size(Ui.Z(980), Ui.Z(700));
             this.MinimumSize = new Size(Ui.Z(860), Ui.Z(600));
             this.StartPosition = FormStartPosition.CenterScreen;
+
+            // Submenus build their own drop-downs; without a global renderer
+            // they would fall back to the light system colours.
+            ToolStripManager.Renderer = Ui.MenuRenderer();
 
             BuildUi();
 
@@ -74,6 +81,14 @@ namespace WifiList
             _btnTheme.Click += delegate { ToggleTheme(); };
             this.Controls.Add(_btnTheme);
 
+            _btnLang = new GlyphButton(GlyphKind.Globe);
+            _btnLang.Click += delegate { ShowLangMenu(); };
+            this.Controls.Add(_btnLang);
+
+            _btnAbout = new GlyphButton(GlyphKind.Info);
+            _btnAbout.Click += delegate { ShowAbout(); };
+            this.Controls.Add(_btnAbout);
+
             _btnMin = new GlyphButton(GlyphKind.Minimum);
             _btnMin.Click += delegate { this.WindowState = FormWindowState.Minimized; };
             this.Controls.Add(_btnMin);
@@ -97,27 +112,43 @@ namespace WifiList
             _txtSearch = new TextBox();
             _txtSearch.BorderStyle = BorderStyle.None;
             _txtSearch.Font = Ui.FSub;
-            _txtSearch.TextChanged += delegate { RebuildGrid(); };
+            _txtSearch.TextChanged += delegate
+            {
+                _btnClear.Visible = _txtSearch.TextLength > 0;
+                RebuildGrid();
+            };
             _searchHost.Controls.Add(_txtSearch);
 
+            // small "x" inside the search field that clears the query
+            _btnClear = new GlyphButton(GlyphKind.Close);
+            _btnClear.BackColor = Ui.Panel;
+            _btnClear.Visible = false;
+            _btnClear.TabStop = false;
+            _btnClear.Click += delegate
+            {
+                _txtSearch.Text = "";
+                _txtSearch.Focus();
+            };
+            _searchHost.Controls.Add(_btnClear);
+
             _chipKey = new ChipToggle();
-            _chipKey.Text = "只看有密码";
+            _chipKey.Text = L.T("chip.onlyKey");
             _chipKey.Toggled += delegate { RebuildGrid(); };
             this.Controls.Add(_chipKey);
 
-            _btnAdd = Ui.MakeButton("添加 WiFi", false);
+            _btnAdd = Ui.MakeButton(L.T("btn.add"), false);
             _btnAdd.Click += OnAdd;
             this.Controls.Add(_btnAdd);
 
-            _btnDelete = Ui.MakeButton("删除", false);
+            _btnDelete = Ui.MakeButton(L.T("btn.delete"), false);
             _btnDelete.Click += OnDelete;
             this.Controls.Add(_btnDelete);
 
-            _btnToggleAll = Ui.MakeButton("显示全部密码", false);
+            _btnToggleAll = Ui.MakeButton(_allShown ? L.T("btn.hideAll") : L.T("btn.showAll"), false);
             _btnToggleAll.Click += delegate { SetAllRevealed(!_allShown); };
             this.Controls.Add(_btnToggleAll);
 
-            _btnExport = Ui.MakeButton("导出 HTML 报告", true);
+            _btnExport = Ui.MakeButton(L.T("btn.export"), true);
             _btnExport.Click += OnExport;
             this.Controls.Add(_btnExport);
 
@@ -134,6 +165,7 @@ namespace WifiList
 
             _lblHint = new Label();
             _lblHint.Font = Ui.FSub;
+            _lblHint.AutoEllipsis = true;
             _lblHint.TextAlign = ContentAlignment.MiddleRight;
             _lblHint.Text = "";
             this.Controls.Add(_lblHint);
@@ -171,25 +203,25 @@ namespace WifiList
             _grid.HandleCreated += delegate { ApplyScrollTheme(); };
 
             DataGridViewTextBoxColumn c1 = new DataGridViewTextBoxColumn();
-            c1.HeaderText = "网络名称";
+            c1.HeaderText = L.T("grid.name");
             c1.FillWeight = 42F;
             c1.SortMode = DataGridViewColumnSortMode.NotSortable;
             _grid.Columns.Add(c1);
 
             DataGridViewTextBoxColumn c2 = new DataGridViewTextBoxColumn();
-            c2.HeaderText = "安全类型";
+            c2.HeaderText = L.T("grid.security");
             c2.FillWeight = 22F;
             c2.SortMode = DataGridViewColumnSortMode.NotSortable;
             _grid.Columns.Add(c2);
 
             DataGridViewTextBoxColumn c3 = new DataGridViewTextBoxColumn();
-            c3.HeaderText = "连接方式";
+            c3.HeaderText = L.T("grid.mode");
             c3.FillWeight = 14F;
             c3.SortMode = DataGridViewColumnSortMode.NotSortable;
             _grid.Columns.Add(c3);
 
             DataGridViewTextBoxColumn c4 = new DataGridViewTextBoxColumn();
-            c4.HeaderText = "密码";
+            c4.HeaderText = L.T("grid.key");
             c4.FillWeight = 24F;
             c4.SortMode = DataGridViewColumnSortMode.NotSortable;
             _grid.Columns.Add(c4);
@@ -223,6 +255,8 @@ namespace WifiList
             _btnClose.SetBounds(bx - btnW, by, btnW, btnH); bx -= btnW + Ui.Z(2);
             _btnMin.SetBounds(bx - btnW, by, btnW, btnH); bx -= btnW + Ui.Z(2);
             _btnTheme.SetBounds(bx - btnW, by, btnW, btnH); bx -= btnW + Ui.Z(2);
+            _btnAbout.SetBounds(bx - btnW, by, btnW, btnH); bx -= btnW + Ui.Z(2);
+            _btnLang.SetBounds(bx - btnW, by, btnW, btnH); bx -= btnW + Ui.Z(2);
             _btnRefresh.SetBounds(bx - btnW, by, btnW, btnH);
 
             int barH = Ui.Z(30);
@@ -235,20 +269,29 @@ namespace WifiList
 
             int searchW = Ui.Z(250);
             _searchHost.SetBounds(x, y, searchW, barH);
-            _txtSearch.SetBounds(Ui.Z(11), Math.Max(0, (barH - _txtSearch.PreferredHeight) / 2),
-                searchW - Ui.Z(22), _txtSearch.PreferredHeight);
 
-            int chipW = Ui.Z(108);
+            int clearS = Ui.Z(19);
+            int clearX = searchW - Ui.Z(7) - clearS;
+            _btnClear.SetBounds(clearX, (barH - clearS) / 2, clearS, clearS);
+
+            int textRight = clearX - Ui.Z(2);
+            _txtSearch.SetBounds(Ui.Z(11), Math.Max(0, (barH - _txtSearch.PreferredHeight) / 2),
+                Math.Max(Ui.Z(40), textRight - Ui.Z(11)), _txtSearch.PreferredHeight);
+
+            // button widths follow the caption, because "Delete" and "ลบ" and
+            // "删除" are far from the same length
+            int chipW = Math.Max(Ui.Z(108), Ui.TextW(_chipKey.Text, Ui.FSub) + Ui.Z(46));
             _chipKey.SetBounds(x + searchW + Ui.Z(10), y, chipW, barH);
 
             int rx = x + w;
-            int bw = Ui.Z(126);
+            int bw = Math.Max(Ui.Z(126), Ui.TextW(L.T("btn.export"), Ui.FBtnBold) + Ui.Z(28));
             _btnExport.SetBounds(rx - bw, y, bw, barH); rx -= bw + Ui.Z(8);
-            bw = Ui.Z(104);
+            bw = Math.Max(Ui.Z(104), Math.Max(Ui.TextW(L.T("btn.showAll"), Ui.FBtn),
+                Ui.TextW(L.T("btn.hideAll"), Ui.FBtn)) + Ui.Z(28));
             _btnToggleAll.SetBounds(rx - bw, y, bw, barH); rx -= bw + Ui.Z(8);
-            bw = Ui.Z(62);
+            bw = Math.Max(Ui.Z(62), Ui.TextW(L.T("btn.delete"), Ui.FBtn) + Ui.Z(28));
             _btnDelete.SetBounds(rx - bw, y, bw, barH); rx -= bw + Ui.Z(8);
-            bw = Ui.Z(92);
+            bw = Math.Max(Ui.Z(92), Ui.TextW(L.T("btn.add"), Ui.FBtn) + Ui.Z(28));
             _btnAdd.SetBounds(rx - bw, y, bw, barH);
 
             y += barH + Ui.Z(10);
@@ -259,7 +302,8 @@ namespace WifiList
             if (gridH < Ui.Z(80)) gridH = Ui.Z(80);
             _grid.SetBounds(x, y, w, gridH);
 
-            int hintW = Math.Min(Ui.Z(300), Math.Max(Ui.Z(120), w / 2));
+            int hintW = Math.Max(Ui.Z(140), Ui.TextW(L.T("hint.bar"), Ui.FSub) + Ui.Z(6));
+            hintW = Math.Min(hintW, Math.Max(Ui.Z(140), w / 2));
             _lblStatus.SetBounds(x, statusY, Math.Max(Ui.Z(120), w - hintW - Ui.Z(12)), lineH);
             _lblHint.SetBounds(x + w - hintW, statusY, hintW, lineH);
         }
@@ -275,9 +319,9 @@ namespace WifiList
             Ui.DrawLogo(g, new Rectangle(pad, (capH - logo) / 2, logo, logo));
 
             int textX = pad + Ui.Z(40);
-            int textW = Math.Max(Ui.Z(120), this.ClientSize.Width - textX - Ui.Z(200));
+            int textW = Math.Max(Ui.Z(120), this.ClientSize.Width - textX - Ui.Z(260));
 
-            Ui.Text(g, "WiFi 密码清单", Ui.FTitle, Ui.Fg,
+            Ui.Text(g, L.T("app.title"), Ui.FTitle, Ui.Fg,
                 new Rectangle(textX, Ui.Z(5), textW, Ui.FTitle.Height + Ui.Z(2)), Ui.LeftTop);
 
             Ui.Text(g, _sub, Ui.FMono, Ui.Mute,
@@ -312,17 +356,22 @@ namespace WifiList
             bool dark = Ui.Theme == UiTheme.Dark;
             _btnTheme.Kind = dark ? GlyphKind.Sun : GlyphKind.Moon;
             _btnTheme.Invalidate();
-            _tips.SetToolTip(_btnTheme, dark ? "切换到浅色主题" : "切换到深色主题");
-            _tips.SetToolTip(_btnMin, "最小化");
-            _tips.SetToolTip(_btnClose, "关闭");
-            _tips.SetToolTip(_btnRefresh, "重新读取（F5）");
-            _tips.SetToolTip(_btnAdd, "添加一个 WiFi 配置");
-            _tips.SetToolTip(_btnDelete, "删除所选网络的已保存配置");
+            _tips.SetToolTip(_btnTheme, dark ? L.T("tip.themeLight") : L.T("tip.themeDark"));
+            _tips.SetToolTip(_btnMin, L.T("tip.min"));
+            _tips.SetToolTip(_btnClose, L.T("tip.close"));
+            _tips.SetToolTip(_btnRefresh, L.T("tip.refresh"));
+            _tips.SetToolTip(_btnAdd, L.T("tip.add"));
+            _tips.SetToolTip(_btnDelete, L.T("tip.delete"));
+            _tips.SetToolTip(_btnLang, L.T("tip.lang"));
+            _tips.SetToolTip(_btnAbout, L.T("tip.about"));
 
             _searchHost.BackColor = Ui.Bg;
             _searchHost.Invalidate();
             _txtSearch.BackColor = Ui.Panel;
             _txtSearch.ForeColor = Ui.Fg;
+            _btnClear.BackColor = Ui.Panel;
+            _btnClear.Invalidate();
+            _tips.SetToolTip(_btnClear, L.T("tip.clear"));
 
             _chipKey.BackColor = Ui.Bg;
             _chipKey.Invalidate();
@@ -391,7 +440,7 @@ namespace WifiList
         {
             if (_busy) return;
             _busy = true;
-            _lblStatus.Text = "正在读取已保存的 WiFi 配置…";
+            _lblStatus.Text = L.T("status.loading");
             _lblHint.Text = "";
             this.Cursor = Cursors.WaitCursor;
             Application.DoEvents();
@@ -412,19 +461,18 @@ namespace WifiList
             if (snap == null)
             {
                 snap = new WifiSnapshot();
-                snap.Error = error == null ? "读取失败" : error;
+                snap.Error = error == null ? L.T("status.readFail") : error;
             }
 
             _snap = snap;
             _revealed.Clear();
             _allShown = false;
-            _btnToggleAll.Text = "显示全部密码";
+            _btnToggleAll.Text = L.T("btn.showAll");
 
             _stats.Bind(_snap);
             _current.Bind(_snap);
 
-            _sub = "v" + Ui.Version + "  ·  " + Environment.MachineName + "  ·  " + _snap.Nets.Count +
-                " 个已保存网络  ·  " + DateTime.Now.ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture);
+            UpdateSub();
             this.Invalidate();
 
             RebuildGrid();
@@ -480,11 +528,11 @@ namespace WifiList
                 string keyText;
                 if (!n.HasKey)
                 {
-                    keyText = "无密码";
+                    keyText = L.T("cell.noKey");
                 }
                 else if (_revealed.Contains(n.Ssid))
                 {
-                    keyText = n.Key.Length > 0 ? n.Key : "（未保存明文）";
+                    keyText = n.Key.Length > 0 ? n.Key : L.T("cell.notSaved");
                 }
                 else
                 {
@@ -523,9 +571,9 @@ namespace WifiList
             }
 
             _lblStatus.Text = _snap.Nets.Count == 0
-                ? "没有读取到任何已保存的 WiFi 配置。"
-                : "共 " + _snap.Nets.Count + " 个网络 · 当前显示 " + list.Count + " 个";
-            _lblHint.Text = "双击显示密码 · 右键更多 · F5 刷新";
+                ? L.T("status.empty")
+                : L.F("status.count", _snap.Nets.Count, list.Count);
+            _lblHint.Text = L.T("hint.bar");
 
             ApplyScrollTheme();
         }
@@ -540,7 +588,7 @@ namespace WifiList
         {
             if (_snap == null) return;
             _allShown = on;
-            _btnToggleAll.Text = on ? "隐藏全部密码" : "显示全部密码";
+            _btnToggleAll.Text = on ? L.T("btn.hideAll") : L.T("btn.showAll");
             if (on)
             {
                 for (int i = 0; i < _snap.Nets.Count; i++)
@@ -595,32 +643,39 @@ namespace WifiList
             ContextMenuStrip menu = new ContextMenuStrip();
             Ui.StyleMenu(menu);
 
-            // ---- connect / disconnect ----
-            ToolStripMenuItem miConnect = new ToolStripMenuItem("连接到此网络");
-            miConnect.Enabled = !isCurrent;
-            miConnect.Click += delegate { ConnectEntry(n); };
-            menu.Items.Add(miConnect);
+            // ---- 1. connection: only one direction can apply, so one row ----
+            if (isCurrent)
+            {
+                ToolStripMenuItem miOff = Ui.MenuItem(L.T("menu.disconnect"));
+                miOff.Click += delegate { DisconnectNow(); };
+                menu.Items.Add(miOff);
+            }
+            else
+            {
+                ToolStripMenuItem miOn = Ui.MenuItem(L.T("menu.connect"));
+                miOn.Click += delegate { ConnectEntry(n); };
+                menu.Items.Add(miOn);
+            }
 
-            ToolStripMenuItem miDisconnect = new ToolStripMenuItem("断开当前连接");
-            miDisconnect.Enabled = isCurrent;
-            miDisconnect.Click += delegate { DisconnectNow(); };
-            menu.Items.Add(miDisconnect);
+            menu.Items.Add(Ui.MenuSeparator());
 
-            menu.Items.Add(new ToolStripSeparator());
-
-            // ---- clipboard / reveal ----
-            ToolStripMenuItem miName = new ToolStripMenuItem("复制网络名称");
+            // ---- 2. clipboard ----
+            ToolStripMenuItem miCopy = Ui.MenuItem(L.T("menu.copy"));
+            ToolStripMenuItem miName = Ui.MenuItem(L.T("menu.copyName"));
             miName.Click += delegate { CopyText(n.Ssid); };
-            menu.Items.Add(miName);
+            miCopy.DropDownItems.Add(miName);
 
+            ToolStripMenuItem miKey = Ui.MenuItem(L.T("menu.copyKey"));
+            miKey.Enabled = n.HasKey && n.Key.Length > 0;
+            miKey.Click += delegate { CopyText(n.Key); };
+            miCopy.DropDownItems.Add(miKey);
+            menu.Items.Add(miCopy);
+
+            // ---- 3. reveal ----
             if (n.HasKey)
             {
-                ToolStripMenuItem miKey = new ToolStripMenuItem("复制密码");
-                miKey.Enabled = n.Key.Length > 0;
-                miKey.Click += delegate { CopyText(n.Key); };
-                menu.Items.Add(miKey);
-
-                ToolStripMenuItem miToggle = new ToolStripMenuItem(_revealed.Contains(n.Ssid) ? "隐藏密码" : "显示密码");
+                bool shown = _revealed.Contains(n.Ssid);
+                ToolStripMenuItem miToggle = Ui.MenuItem(shown ? L.T("menu.hideKey") : L.T("menu.showKey"));
                 miToggle.Click += delegate
                 {
                     if (_revealed.Contains(n.Ssid)) _revealed.Remove(n.Ssid);
@@ -630,29 +685,31 @@ namespace WifiList
                 menu.Items.Add(miToggle);
             }
 
-            menu.Items.Add(new ToolStripSeparator());
+            menu.Items.Add(Ui.MenuSeparator());
 
-            // ---- profile ----
+            // ---- 4. profile maintenance, folded into one submenu ----
+            ToolStripMenuItem miCfg = Ui.MenuItem(L.T("menu.config"));
             bool canEdit = CanEditProfile(n);
-            ToolStripMenuItem miEdit = new ToolStripMenuItem(
-                canEdit ? "编辑此网络…" : "编辑此网络…（企业级请在系统设置中修改）");
+            ToolStripMenuItem miEdit = Ui.MenuItem(canEdit ? L.T("menu.edit") : L.T("menu.editNo"));
             miEdit.Enabled = canEdit;
             miEdit.Click += delegate { EditEntry(n); };
-            menu.Items.Add(miEdit);
+            miCfg.DropDownItems.Add(miEdit);
 
             bool isAuto = string.Equals(n.Mode, "auto", StringComparison.OrdinalIgnoreCase);
-            ToolStripMenuItem miMode = new ToolStripMenuItem(isAuto ? "设为手动连接" : "设为自动连接");
+            ToolStripMenuItem miMode = Ui.MenuItem(isAuto ? L.T("menu.manual") : L.T("menu.auto"));
             miMode.Click += delegate { SetAutoMode(n, !isAuto); };
-            menu.Items.Add(miMode);
+            miCfg.DropDownItems.Add(miMode);
 
-            menu.Items.Add(new ToolStripSeparator());
+            miCfg.DropDownItems.Add(Ui.MenuSeparator());
 
-            ToolStripMenuItem miDelete = new ToolStripMenuItem("删除此网络的配置");
+            ToolStripMenuItem miDelete = Ui.MenuItem(L.T("menu.delete"));
             miDelete.ForeColor = Ui.Danger;
             miDelete.Click += delegate { DeleteEntry(n); };
-            menu.Items.Add(miDelete);
+            miCfg.DropDownItems.Add(miDelete);
+            menu.Items.Add(miCfg);
 
-            ToolStripMenuItem miRefresh = new ToolStripMenuItem("刷新列表");
+            // ---- 5. refresh ----
+            ToolStripMenuItem miRefresh = Ui.MenuItem(L.T("menu.refresh"));
             miRefresh.Click += delegate { Reload(); };
             menu.Items.Add(miRefresh);
 
@@ -694,16 +751,19 @@ namespace WifiList
                 {
                     if (ci.Connected && string.Equals(ci.Ssid, ssid, StringComparison.Ordinal)) return true;
                 }
-                else if (!ci.Connected)
+                else if (!ci.Connected || ci.Ssid.Length == 0)
                 {
+                    // the adapter stays Up after a disconnect, so "no SSID"
+                    // is the signal that the radio really let go
                     return true;
                 }
 
                 if (waited >= timeoutMs) break;
                 System.Threading.Thread.Sleep(400);
                 waited += 400;
-                _lblStatus.Text = (wantConnected ? "正在连接「" + ssid + "」… " : "正在断开… ") +
-                    (waited / 1000) + "s";
+                _lblStatus.Text = wantConnected
+                    ? L.F("status.waitConnect", Q(ssid), waited / 1000)
+                    : L.F("status.waitDisconnect", waited / 1000);
                 Application.DoEvents();
             }
             return false;
@@ -715,11 +775,40 @@ namespace WifiList
 
             _busy = true;
             this.Cursor = Cursors.WaitCursor;
-            _lblStatus.Text = "正在连接「" + n.Ssid + "」…";
             Application.DoEvents();
 
-            NetshResult r = WifiCollector.Connect(n.Ssid);
-            bool ok = WaitState(n.Ssid, true, 12000);
+            string iface = WifiCollector.WirelessInterfaceName();
+            NetshResult last = null;
+            bool ok = false;
+
+            // Two attempts. The first names the adapter explicitly (netsh fails
+            // with "无法连接…" when it has to guess between the physical card and
+            // the Wi-Fi Direct adapter); the second drops the old association
+            // first, because switching networks often fails while the radio is
+            // still tearing down the previous one even though the Windows
+            // flyout would have managed it.
+            for (int attempt = 0; attempt < 2; attempt++)
+            {
+                if (attempt > 0)
+                {
+                    _lblStatus.Text = L.T("status.retryDrop");
+                    Application.DoEvents();
+                    WifiCollector.Disconnect();
+                    WaitState("", false, 3000);
+                }
+
+                _lblStatus.Text = attempt == 0
+                    ? L.F("status.connecting", Q(n.Ssid))
+                    : L.F("status.retrying", Q(n.Ssid));
+                Application.DoEvents();
+
+                last = attempt == 0
+                    ? WifiCollector.Connect(n.Ssid, iface)
+                    : WifiCollector.Connect(n.Ssid);
+
+                ok = WaitState(n.Ssid, true, attempt == 0 ? 8000 : 10000);
+                if (ok) break;
+            }
 
             this.Cursor = Cursors.Default;
             _busy = false;
@@ -727,18 +816,22 @@ namespace WifiList
 
             if (ok)
             {
-                _lblStatus.Text = "已连接到「" + n.Ssid + "」";
+                _lblStatus.Text = L.F("status.connected", Q(n.Ssid));
+                return;
             }
-            else
+
+            string detail = last == null ? "" : FirstLines(last.Text, 5);
+            string msg = "";
+            if (detail.Length > 0)
             {
-                Prompt.Info(this, "连接未成功",
-                    FirstLines(r.Text, 6) + "\r\n\r\n" +
-                    "可能原因：\r\n" +
-                    "· 该网络不在信号范围内，或信号太弱\r\n" +
-                    "· 密码已被修改\r\n" +
-                    "· 需要网页认证或 802.1X 登录\r\n\r\n" +
-                    "可以稍等几秒后点「刷新」再看一次。");
+                msg += detail + "\r\n\r\n";
             }
+            if (last != null && last.Code != 0)
+            {
+                msg += L.F("dlg.retCode", last.Code) + "\r\n\r\n";
+            }
+            msg += L.T("dlg.connectReasons") + "\r\n\r\n" + L.T("dlg.connectTail");
+            Prompt.Info(this, L.T("dlg.connectFail"), msg);
         }
 
         private void DisconnectNow()
@@ -747,7 +840,7 @@ namespace WifiList
 
             _busy = true;
             this.Cursor = Cursors.WaitCursor;
-            _lblStatus.Text = "正在断开…";
+            _lblStatus.Text = L.T("status.disconnecting");
             Application.DoEvents();
 
             NetshResult r = WifiCollector.Disconnect();
@@ -759,11 +852,12 @@ namespace WifiList
 
             if (ok)
             {
-                _lblStatus.Text = "已断开无线连接";
+                _lblStatus.Text = L.T("status.disconnected");
             }
             else
             {
-                Prompt.Info(this, "断开失败", FirstLines(r.Text, 6) + "\r\n\r\n可以先在系统托盘的网络菜单里手动断开。");
+                Prompt.Info(this, L.T("dlg.disconnectFail"),
+                    FirstLines(r.Text, 6) + "\r\n\r\n" + L.T("dlg.disconnectTip"));
             }
         }
 
@@ -785,12 +879,12 @@ namespace WifiList
 
             if (ok)
             {
-                _lblStatus.Text = "「" + n.Ssid + "」已设为" + (auto ? "自动连接" : "手动连接");
+                _lblStatus.Text = L.F("status.modeSet", Q(n.Ssid), auto ? L.T("m.auto") : L.T("m.manual"));
             }
             else
             {
-                Prompt.Info(this, "设置未生效", FirstLines(r.Text, 6) +
-                    "\r\n\r\n若提示权限不足，请以管理员身份运行后重试。");
+                Prompt.Info(this, L.T("dlg.modeFail"),
+                    FirstLines(r.Text, 6) + "\r\n\r\n" + L.T("dlg.modeFailTip"));
             }
         }
 
@@ -811,9 +905,8 @@ namespace WifiList
 
                 if (renamed && FindEntry(dlg.Ssid) != null)
                 {
-                    if (!Prompt.Ask(this, "名称重复",
-                        "列表里已经有一个叫「" + dlg.Ssid + "」的配置。\r\n\r\n继续保存会覆盖它。",
-                        "覆盖", true))
+                    if (!Prompt.Ask(this, L.T("dlg.dupTitle"),
+                        L.F("dlg.dupAsk", Q(dlg.Ssid)), L.T("btn.overwrite"), true))
                     {
                         return;
                     }
@@ -823,7 +916,7 @@ namespace WifiList
                 this.Cursor = Cursors.WaitCursor;
                 string backup = WifiCollector.BackupProfile(oldSsid);
 
-                _lblStatus.Text = "正在保存「" + dlg.Ssid + "」…";
+                _lblStatus.Text = L.F("status.saving", Q(dlg.Ssid));
                 Application.DoEvents();
 
                 NetshResult r = WifiCollector.AddProfile(dlg.Ssid, dlg.Auth, dlg.Enc,
@@ -863,7 +956,7 @@ namespace WifiList
 
                 if (saved && dlg.ConnectNow)
                 {
-                    WifiCollector.Connect(dlg.Ssid);
+                    WifiCollector.Connect(dlg.Ssid, WifiCollector.WirelessInterfaceName());
                     WaitState(dlg.Ssid, true, 12000);
                 }
 
@@ -878,25 +971,21 @@ namespace WifiList
                     {
                         NetshResult rb = WifiCollector.RestoreProfile(backup);
                         extra = rb.Ok
-                            ? "\r\n\r\n已自动还原为修改前的配置。"
-                            : "\r\n\r\n原配置的回滚也失败了，请用「添加 WiFi」重新录入。";
+                            ? "\r\n\r\n" + L.T("dlg.rolledBack")
+                            : "\r\n\r\n" + L.T("dlg.rollbackFail");
                     }
 
-                    Prompt.Info(this, "保存失败",
-                        FirstLines(r.Text, 8) + extra + "\r\n\r\n" +
-                        "常见原因：\r\n" +
-                        "· 密码不符合所选安全类型的要求\r\n" +
-                        "· 配置文件正被系统占用\r\n" +
-                        "· 需要以管理员身份运行本程序");
+                    Prompt.Info(this, L.T("dlg.saveFail"),
+                        FirstLines(r.Text, 8) + extra + "\r\n\r\n" + L.T("dlg.saveReasons"));
                 }
                 else
                 {
                     _lblStatus.Text = renamed
-                        ? "已重命名为「" + dlg.Ssid + "」"
-                        : "已保存「" + dlg.Ssid + "」的配置";
+                        ? L.F("status.renamed", Q(dlg.Ssid))
+                        : L.F("status.saved", Q(dlg.Ssid));
                     if (n.Current && !dlg.ConnectNow)
                     {
-                        _lblStatus.Text += "（当前连接可能已受影响，可右键重新连接）";
+                        _lblStatus.Text += L.T("status.savedLive");
                     }
                 }
 
@@ -910,11 +999,11 @@ namespace WifiList
             try
             {
                 Clipboard.SetText(text);
-                _lblStatus.Text = "已复制到剪贴板";
+                _lblStatus.Text = L.T("status.copied");
             }
             catch
             {
-                _lblStatus.Text = "复制失败，剪贴板被其他程序占用";
+                _lblStatus.Text = L.T("status.copyFail");
             }
         }
 
@@ -932,7 +1021,8 @@ namespace WifiList
                 NetshResult r = WifiCollector.AddProfile(dlg.Ssid, dlg.Auth, dlg.Enc, dlg.Key, dlg.HiddenNet, dlg.AutoMode);
                 if (r.Ok && dlg.ConnectNow)
                 {
-                    WifiCollector.Connect(dlg.Ssid);
+                    WifiCollector.Connect(dlg.Ssid, WifiCollector.WirelessInterfaceName());
+                    WaitState(dlg.Ssid, true, 10000);
                 }
                 this.Cursor = Cursors.Default;
 
@@ -953,16 +1043,18 @@ namespace WifiList
 
                 if (present)
                 {
-                    _lblStatus.Text = "已添加「" + dlg.Ssid + "」" + (dlg.ConnectNow ? "，正在尝试连接" : "");
+                    _lblStatus.Text = L.F("status.added", Q(dlg.Ssid));
+                    if (dlg.ConnectNow)
+                    {
+                        bool on = _snap != null && _snap.Current.Connected &&
+                            string.Equals(_snap.Current.Ssid, dlg.Ssid, StringComparison.Ordinal);
+                        _lblStatus.Text += on ? L.T("status.addedOk") : L.T("status.addedNo");
+                    }
                 }
                 else
                 {
-                    Prompt.Info(this, "添加失败",
-                        FirstLines(r.Text, 8) + "\r\n\r\n" +
-                        "常见原因：\r\n" +
-                        "· 名称或密码不符合该安全类型的要求\r\n" +
-                        "· 无线网卡被禁用\r\n" +
-                        "· 需要以管理员身份运行本程序");
+                    Prompt.Info(this, L.T("dlg.addFail"),
+                        FirstLines(r.Text, 8) + "\r\n\r\n" + L.T("dlg.addReasons"));
                 }
             }
         }
@@ -972,7 +1064,7 @@ namespace WifiList
             WifiEntry n = Selected();
             if (n == null)
             {
-                Prompt.Info(this, "删除 WiFi", "请先在列表中选择要删除的网络。");
+                Prompt.Info(this, L.T("dlg.deleteTitle"), L.T("dlg.deletePick"));
                 return;
             }
             DeleteEntry(n);
@@ -982,13 +1074,13 @@ namespace WifiList
         {
             if (n == null || _busy) return;
 
-            string msg = "确定要从这台电脑删除「" + n.Ssid + "」的已保存配置吗？\r\n\r\n删除后，再次连接需要重新输入密码。";
+            string msg = L.F("dlg.deleteAsk", Q(n.Ssid));
             if (n.Current)
             {
-                msg += "\r\n\r\n注意：这是当前正在连接的网络，删除后连接会立即断开。";
+                msg += L.T("dlg.deleteAskLive");
             }
 
-            if (!Prompt.Ask(this, "删除 WiFi", msg, "删除", true)) return;
+            if (!Prompt.Ask(this, L.T("dlg.deleteTitle"), msg, L.T("btn.delete"), true)) return;
 
             this.Cursor = Cursors.WaitCursor;
             NetshResult r = WifiCollector.DeleteProfile(n.Ssid);
@@ -1011,19 +1103,18 @@ namespace WifiList
 
             if (still)
             {
-                Prompt.Info(this, "删除失败",
-                    FirstLines(r.Text, 8) + "\r\n\r\n" +
-                    "若提示权限不足，请右键 WifiList.exe 以管理员身份运行后重试。");
+                Prompt.Info(this, L.T("dlg.deleteFail"),
+                    FirstLines(r.Text, 8) + "\r\n\r\n" + L.T("dlg.deleteFailTip"));
             }
             else
             {
-                _lblStatus.Text = "已删除「" + n.Ssid + "」的配置";
+                _lblStatus.Text = L.F("status.deleted", Q(n.Ssid));
             }
         }
 
         private static string FirstLines(string text, int max)
         {
-            if (string.IsNullOrEmpty(text)) return "（netsh 没有返回详细信息）";
+            if (string.IsNullOrEmpty(text)) return L.T("netsh.noDetail");
             string[] lines = text.Replace("\r\n", "\n").Split('\n');
             List<string> keep = new List<string>();
             for (int i = 0; i < lines.Length; i++)
@@ -1033,7 +1124,7 @@ namespace WifiList
                 keep.Add(s);
                 if (keep.Count >= max) break;
             }
-            return keep.Count == 0 ? "（netsh 没有返回详细信息）" : string.Join("\r\n", keep.ToArray());
+            return keep.Count == 0 ? L.T("netsh.noDetail") : string.Join("\r\n", keep.ToArray());
         }
 
         private void OnExport(object sender, EventArgs e)
@@ -1043,12 +1134,12 @@ namespace WifiList
             {
                 string path = HtmlExporter.DefaultPath();
                 HtmlExporter.Export(path, _snap);
-                _lblStatus.Text = "已导出：" + path;
+                _lblStatus.Text = L.F("status.exported", path);
                 HtmlExporter.OpenWithShell(path);
             }
             catch (Exception ex)
             {
-                Prompt.Info(this, "导出失败", ex.Message);
+                Prompt.Info(this, L.T("dlg.exportFail"), ex.Message);
             }
         }
 
@@ -1056,8 +1147,101 @@ namespace WifiList
         // misc
         // ------------------------------------------------------------------
 
+        // ------------------------------------------------------------------
+        // language / about
+        // ------------------------------------------------------------------
+
+        /// <summary>Quotes a name the way the active language does.</summary>
+        private static string Q(string s)
+        {
+            if (s == null) s = "";
+            if (L.Current == UiLang.Zh) return "\u300C" + s + "\u300D";
+            return "\u201C" + s + "\u201D";
+        }
+
+        private void UpdateSub()
+        {
+            if (_snap == null) return;
+            _sub = L.F("app.sub", Ui.Version, Environment.MachineName, _snap.Nets.Count,
+                DateTime.Now.ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture));
+        }
+
+        private void ShowLangMenu()
+        {
+            ContextMenuStrip menu = new ContextMenuStrip();
+            Ui.StyleMenu(menu);
+
+            UiLang[] all = new UiLang[] { UiLang.Zh, UiLang.En, UiLang.Th };
+            for (int i = 0; i < all.Length; i++)
+            {
+                UiLang lang = all[i];
+                string label = (L.Current == lang ? "\u2713  " : "\u2003  ") + L.NativeName(lang);
+                ToolStripMenuItem mi = Ui.MenuItem(label);
+                mi.Click += delegate { SwitchLanguage(lang); };
+                menu.Items.Add(mi);
+            }
+            menu.Show(_btnLang, new Point(0, _btnLang.Height + Ui.Z(2)));
+        }
+
+        private void SwitchLanguage(UiLang lang)
+        {
+            if (L.Current == lang) return;
+            L.Current = lang;
+            L.Save();
+            Ui.LoadFonts();
+            RebuildUi();
+        }
+
+        /// <summary>
+        /// Recreates every child control after a language change. Captions and
+        /// fonts are bound when a control is built, so the cheapest correct
+        /// refresh is to build the window again and re-bind the same snapshot.
+        /// </summary>
+        private void RebuildUi()
+        {
+            string query = _txtSearch == null ? "" : _txtSearch.Text;
+
+            while (this.Controls.Count > 0)
+            {
+                Control c = this.Controls[0];
+                this.Controls.RemoveAt(0);
+                try { c.Dispose(); } catch { }
+            }
+            if (_tips != null)
+            {
+                try { _tips.Dispose(); } catch { }
+                _tips = null;
+            }
+
+            this.Text = L.T("app.title") + " v" + Ui.Version;
+            BuildUi();
+
+            _txtSearch.Text = query;
+            if (_snap != null)
+            {
+                _stats.Bind(_snap);
+                _current.Bind(_snap);
+                UpdateSub();
+                RebuildGrid();
+            }
+            this.Invalidate(true);
+        }
+
+        private void ShowAbout()
+        {
+            using (AboutForm f = new AboutForm(_snap))
+            {
+                f.ShowDialog(this);
+            }
+        }
+
         protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
         {
+            if (keyData == Keys.Escape && _txtSearch.Focused && _txtSearch.TextLength > 0)
+            {
+                _txtSearch.Text = "";
+                return true;
+            }
             if (keyData == Keys.F5)
             {
                 Reload();
@@ -1080,7 +1264,7 @@ namespace WifiList
             base.OnShown(e);
             try
             {
-                SendMessage(_txtSearch.Handle, 0x1501, new IntPtr(1), "搜索 WiFi 名称…");
+                SendMessage(_txtSearch.Handle, 0x1501, new IntPtr(1), L.T("ph.search"));
             }
             catch { }
         }
