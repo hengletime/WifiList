@@ -2,6 +2,7 @@
 setlocal
 cd /d "%~dp0"
 title Build WifiList.exe v1.2.0
+set "LOG=%CD%\build.log"
 
 echo.
 echo   ============================================
@@ -53,9 +54,11 @@ echo.
  /r:System.Windows.Forms.dll /r:System.Xml.dll ^
  "src\AssemblyInfo.cs" "src\Program.cs" "src\UiKit.cs" "src\Chrome.cs" ^
  "src\Panels.cs" "src\Dialogs.cs" "src\MainForm.cs" ^
- "src\WifiData.cs" "src\HtmlExporter.cs"
+ "src\WifiData.cs" "src\HtmlExporter.cs" > "%LOG%" 2>&1
+set "RC=%ERRORLEVEL%"
+type "%LOG%"
 
-if errorlevel 1 goto onerror
+if not "%RC%"=="0" goto onerror
 if not exist "WifiList.exe" goto onerror
 goto done
 
@@ -83,7 +86,11 @@ exit /b 0
 :failed
 echo.
 echo   [FAILED] The compiler reported errors above.
-echo   Copy the whole window and send it back for a fix.
+echo.
+echo   Full log saved to:
+echo     %LOG%
+echo.
+echo   Send that file back (or the text above) for a fix.
 echo.
 pause
 exit /b 1

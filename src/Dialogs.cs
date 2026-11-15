@@ -567,12 +567,9 @@ namespace WifiList
                 g.DrawLine(pen, pad, CapH - 1, this.ClientSize.Width - pad, CapH - 1);
             }
 
-            TextRenderer.DrawText(g, "网络名称（SSID）", Ui.FKey, Ui.Mute, _lblSsid,
-                TextFormatFlags.Left | TextFormatFlags.Top | TextFormatFlags.NoPadding | TextFormatFlags.SingleLine);
-            TextRenderer.DrawText(g, "安全类型", Ui.FKey, Ui.Mute, _lblAuth,
-                TextFormatFlags.Left | TextFormatFlags.Top | TextFormatFlags.NoPadding | TextFormatFlags.SingleLine);
-            TextRenderer.DrawText(g, _lblKeyText, Ui.FKey, Ui.Mute, _lblKey,
-                TextFormatFlags.Left | TextFormatFlags.Top | TextFormatFlags.NoPadding | TextFormatFlags.SingleLine);
+            Ui.Text(g, "网络名称（SSID）", Ui.FKey, Ui.Mute, _lblSsid, Ui.LeftTop);
+            Ui.Text(g, "安全类型", Ui.FKey, Ui.Mute, _lblAuth, Ui.LeftTop);
+            Ui.Text(g, _lblKeyText, Ui.FKey, Ui.Mute, _lblKey, Ui.LeftTop);
         }
 
         private void OnSave(object sender, EventArgs e)
