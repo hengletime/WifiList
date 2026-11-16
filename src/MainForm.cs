@@ -14,6 +14,8 @@ namespace WifiList
         private WifiSnapshot _snap;
         private System.Windows.Forms.Timer _lateTimer;
         private int _lateTries;
+        private System.Windows.Forms.Timer _sigTimer;
+        private int _sigTries;
         private readonly HashSet<string> _revealed = new HashSet<string>(StringComparer.Ordinal);
         private string _sub = "";
         private bool _allShown;
@@ -496,6 +498,11 @@ namespace WifiList
             // what recovers the IP/gateway/DNS block after a network switch
             // without the user having to restart the app.
             EnsureLateRefresh();
+
+            // Same idea for the signal column: the read above ran while the
+            // scan it just asked for was still in flight, so a second access
+            // point can still be missing from a partial list.
+            EnsureSignalRefresh();
         }
 
         private List<WifiEntry> Filtered()
@@ -849,6 +856,92 @@ namespace WifiList
                 return;
             }
             if (!_busy) Reload();
+        }
+
+        /// <summary>
+        /// WlanScan only asks the radio to start; its results arrive a second or
+        /// two later, per band. Reading the available-network list right after
+        /// asking therefore returns a partial neighbourhood — which is how a
+        /// network that is plainly in range ended up showing "—" until the user
+        /// refreshed a second time. This timer re-reads a few times and folds
+        /// in whatever has become audible, without asking for anything.
+        /// </summary>
+        private void EnsureSignalRefresh()
+        {
+            if (_snap == null || !_snap.Scanned) return;
+
+            if (_sigTimer == null)
+            {
+                _sigTimer = new System.Windows.Forms.Timer();
+                _sigTimer.Interval = 700;
+                _sigTimer.Tick += delegate { OnSignalSettle(); };
+            }
+            _sigTries = 0;
+            _sigTimer.Start();
+        }
+
+        private void OnSignalSettle()
+        {
+            if (this.IsDisposed)
+            {
+                if (_sigTimer != null) _sigTimer.Stop();
+                return;
+            }
+            if (_busy) return;                        // a reload is running; it re-arms on its own
+            if (_snap == null || _sigTimer == null)
+            {
+                if (_sigTimer != null) _sigTimer.Stop();
+                return;
+            }
+
+            _sigTries++;
+            if (WifiCollector.RefreshSignals(_snap))
+            {
+                ApplySignalUpdate();
+            }
+            if (_sigTries >= 8) _sigTimer.Stop();      // measured: the list keeps filling for ~5 s
+        }
+
+        /// <summary>Pushes refreshed signal values into the existing rows when
+        /// the order did not move, and rebuilds when it did — a network that
+        /// just became audible has to climb into the audible block.</summary>
+        private void ApplySignalUpdate()
+        {
+            if (_grid == null || _snap == null) return;
+
+            List<WifiEntry> order = Filtered();
+            bool same = order.Count == _grid.Rows.Count;
+            if (same)
+            {
+                for (int i = 0; i < order.Count; i++)
+                {
+                    if (!object.ReferenceEquals(_grid.Rows[i].Tag, order[i]))
+                    {
+                        same = false;
+                        break;
+                    }
+                }
+            }
+
+            if (!same)
+            {
+                RebuildGrid();
+                return;
+            }
+
+            for (int i = 0; i < order.Count; i++)
+            {
+                WifiEntry n = order[i];
+                DataGridViewCell c = _grid.Rows[i].Cells[1];
+                string text = n.HasSignal
+                    ? n.Signal.ToString(CultureInfo.InvariantCulture) + "%"
+                    : "\u2014";
+                if (!string.Equals(c.Value as string, text, StringComparison.Ordinal))
+                {
+                    c.Value = text;
+                }
+                c.Style.ForeColor = n.HasSignal && n.Signal >= 40 ? Ui.Fg : Ui.Mute;
+            }
         }
 
         private void ConnectEntry(WifiEntry n)

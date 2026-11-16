@@ -110,6 +110,11 @@ namespace WifiList
         public NetworkInfo Current = new NetworkInfo();
         public string Adapter = "";
         public string Error = "";
+
+        /// <summary>True when this load asked the radio for a fresh scan. The
+        /// results of that scan land a second or two later, so the window
+        /// schedules a short settle pass instead of trusting the first read.</summary>
+        public bool Scanned = false;
     }
 
     /// <summary>Outcome of a netsh invocation.</summary>
@@ -344,6 +349,7 @@ namespace WifiList
                 {
                     _lastScan = DateTime.UtcNow;
                     WlanApi.Scan();
+                    snap.Scanned = true;
                 }
             }
             catch { }
@@ -422,27 +428,76 @@ namespace WifiList
 
             // Signal strength for every saved profile the radio can hear.
             // Profiles out of range keep -1 and sink to the bottom of the list.
+            ApplySignals(snap, true);
+
+            SortBySignal(snap.Nets);
+
+            return snap;
+        }
+
+        /// <summary>Reads the neighbourhood and writes the values into
+        /// <paramref name="snap"/>. Returns true when at least one profile's
+        /// value actually moved.
+        ///
+        /// <paramref name="allowClear"/> decides what happens to a profile the
+        /// radio does not report: a full load starts from a blank snapshot and
+        /// must clear it, while a settle pass runs *while* the scan is still in
+        /// flight and gets a partial list — clearing there would make rows
+        /// flicker between "91%" and "—".</summary>
+        public static bool ApplySignals(WifiSnapshot snap, bool allowClear)
+        {
+            bool changed = false;
             try
             {
                 Dictionary<string, int> heard;
-                if (WlanApi.TryAvailableSignals(out heard) && heard.Count > 0)
+                if (!WlanApi.TryAvailableSignals(out heard) || heard.Count == 0)
                 {
-                    for (int i = 0; i < snap.Nets.Count; i++)
+                    return false;
+                }
+
+                for (int i = 0; i < snap.Nets.Count; i++)
+                {
+                    WifiEntry n = snap.Nets[i];
+                    int q;
+                    if (heard.TryGetValue(n.Ssid, out q))
                     {
-                        int q;
-                        if (heard.TryGetValue(snap.Nets[i].Ssid, out q))
+                        if (n.Signal != q)
                         {
-                            snap.Nets[i].Signal = q;
+                            n.Signal = q;
+                            changed = true;
                         }
+                    }
+                    else if (allowClear && n.Signal >= 0)
+                    {
+                        n.Signal = -1;
+                        changed = true;
                     }
                 }
             }
             catch { }
+            return changed;
+        }
 
-            // Audible networks first, strongest to weakest; the rest by name.
-            // Signal 0 is a real reading at the edge of range and must rank
-            // above "not heard at all" (-1).
-            snap.Nets.Sort(delegate(WifiEntry a, WifiEntry b)
+        /// <summary>Re-reads the radio after a scan was requested and applies
+        /// only what has become audible. Used by the window's settle timer:
+        /// WlanScan returns immediately, so the read that follows it a few
+        /// hundred milliseconds later can still be missing the second access
+        /// point — which is why a network used to appear only on the second
+        /// refresh.</summary>
+        public static bool RefreshSignals(WifiSnapshot snap)
+        {
+            if (snap == null) return false;
+            bool changed = ApplySignals(snap, false);
+            if (changed) SortBySignal(snap.Nets);
+            return changed;
+        }
+
+        /// <summary>Audible networks first, strongest to weakest; the rest by
+        /// name. Signal 0 is a real reading at the edge of range and must rank
+        /// above "not heard at all" (-1).</summary>
+        public static void SortBySignal(List<WifiEntry> nets)
+        {
+            nets.Sort(delegate(WifiEntry a, WifiEntry b)
             {
                 bool ha = a.HasSignal;
                 bool hb = b.HasSignal;
@@ -450,8 +505,6 @@ namespace WifiList
                 if (ha && a.Signal != b.Signal) return a.Signal > b.Signal ? -1 : 1;
                 return string.Compare(a.Ssid, b.Ssid, StringComparison.CurrentCulture);
             });
-
-            return snap;
         }
 
         // ------------------------------------------------------------------
