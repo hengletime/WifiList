@@ -1,8 +1,8 @@
 @echo off
 setlocal
 cd /d "%~dp0"
-title Package WifiList v1.6.1
-set "VER=1.6.1"
+title Package WifiList v1.6.2
+set "VER=1.6.2"
 set "LOG=%CD%\build.log"
 set "OUT=%CD%\dist"
 
@@ -55,7 +55,7 @@ echo   [1/4] compiling WifiList.exe ...
  /r:System.dll /r:System.Core.dll /r:System.Drawing.dll ^
  /r:System.Windows.Forms.dll /r:System.Xml.dll ^
  "src\AssemblyInfo.cs" "src\Program.cs" "src\Lang.cs" "src\UiKit.cs" "src\Chrome.cs" ^
- "src\Panels.cs" "src\Dialogs.cs" "src\MainForm.cs" "src\WifiData.cs" ^
+ "src\Panels.cs" "src\Dialogs.cs" "src\MainForm.cs" "src\WifiData.cs" "src\WlanApi.cs" ^
  "src\HtmlExporter.cs" "src\Update.cs" > "%LOG%" 2>&1
 set "RC=%ERRORLEVEL%"
 if not "%RC%"=="0" goto appfail

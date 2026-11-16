@@ -27,7 +27,7 @@ namespace WifiListSetup
     {
         public const string AppName = "WifiList";
         public const string AppTitle = "WiFi 密码清单";
-        public const string AppVersion = "1.6.1";
+        public const string AppVersion = "1.6.2";
         public const string Publisher = "Commanderc";
         public const string HomePage = "https://github.com/hengletime/WifiList";
         public const string PayloadName = "WifiList.Payload.exe";

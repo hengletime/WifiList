@@ -62,6 +62,25 @@ namespace WifiList
                 return;
             }
 
+            if (args != null && args.Length >= 2 && string.Equals(args[0], "--delete-profile", StringComparison.OrdinalIgnoreCase))
+            {
+                NetshResult r = WifiCollector.DeleteProfile(args[1]);
+                Console.WriteLine((r.Ok ? "OK" : "FAIL") + " " + r.Code);
+                Console.WriteLine(r.Text);
+                Environment.ExitCode = r.Ok ? 0 : 1;
+                return;
+            }
+
+            if (args != null && args.Length >= 3 && string.Equals(args[0], "--set-mode", StringComparison.OrdinalIgnoreCase))
+            {
+                bool auto = string.Equals(args[2], "auto", StringComparison.OrdinalIgnoreCase);
+                NetshResult r = WifiCollector.SetConnectionMode(args[1], auto);
+                Console.WriteLine((r.Ok ? "OK" : "FAIL") + " " + r.Code);
+                Console.WriteLine(r.Text);
+                Environment.ExitCode = r.Ok ? 0 : 1;
+                return;
+            }
+
             Application.Run(new MainForm());
         }
 

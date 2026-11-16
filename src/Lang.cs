@@ -345,6 +345,35 @@ namespace WifiList
             A("w.errNoBackup", "备份文件不存在，无法回滚。",
                 "The backup file is missing, so it cannot be restored.",
                 "ไม่พบไฟล์สำรอง จึงคืนค่าไม่ได้");
+            A("w.errNoWlan", "无法连接 WLAN 服务，请确认无线网卡可用。",
+                "The WLAN service could not be reached. Check that the wireless adapter is available.",
+                "เชื่อมต่อบริการ WLAN ไม่ได้ ตรวจสอบว่าอะแดปเตอร์ไร้สายพร้อมใช้งาน");
+            A("w.apiDeleted", "已通过系统接口删除「{0}」（netsh 无法处理以 # 开头的名字）。",
+                "Removed \"{0}\" through the system API, because netsh cannot handle a name that starts with '#'.",
+                "ลบ \"{0}\" ผ่าน API ของระบบแล้ว เพราะ netsh จัดการชื่อที่ขึ้นต้นด้วย # ไม่ได้");
+            A("w.apiDeleteFail", "系统接口也无法删除「{0}」（{1}）。",
+                "The system API could not remove \"{0}\" either ({1}).",
+                "API ของระบบก็ลบ \"{0}\" ไม่ได้เช่นกัน ({1})");
+            A("w.apiStillThere", "删除命令已执行，但档案「{0}」仍然存在。",
+                "The delete call went through, but the profile \"{0}\" is still listed.",
+                "เรียกคำสั่งลบแล้ว แต่โปรไฟล์ \"{0}\" ยังอยู่ในระบบ");
+            A("w.apiConnected", "已通过系统接口请求连接「{0}」。",
+                "Connection to \"{0}\" requested through the system API.",
+                "ขอเชื่อมต่อ \"{0}\" ผ่าน API ของระบบแล้ว");
+            A("w.apiConnectMissing", "没有任何无线接口保存着「{0}」。",
+                "No wireless interface holds a profile for \"{0}\".",
+                "ไม่มีอินเทอร์เฟซไร้สายใดเก็บโปรไฟล์ \"{0}\"");
+            A("w.apiConnectFail", "系统接口连接失败（{1}）。",
+                "The system API could not start the connection ({1}).",
+                "API ของระบบเริ่มการเชื่อมต่อไม่สำเร็จ ({1})");
+            A("w.exportFail", "无法导出档案「{0}」，操作已取消。",
+                "The profile \"{0}\" could not be exported, so nothing was changed.",
+                "ส่งออกโปรไฟล์ \"{0}\" ไม่ได้ จึงยังไม่มีการเปลี่ยนแปลง");
+            A("dlg.keepOldTitle", "旧网络没删掉", "The old network is still there",
+                "เครือข่ายเดิมยังอยู่");
+            A("dlg.keepOld", "已保存为「{1}」，但旧条目「{0}」没能删除，列表里会看到两条。可以右键旧条目单独删除。",
+                "Saved as \"{1}\", but the old entry \"{0}\" could not be removed, so two rows are left. Right-click the old one to delete it.",
+                "บันทึกเป็น \"{1}\" แล้ว แต่ลบรายการเดิม \"{0}\" ไม่ได้ จึงเหลือสองรายการ คลิกขวารายการเดิมเพื่อลบ");
 
             // ---- about ----
             A("ab.title", "关于", "About", "เกี่ยวกับ");

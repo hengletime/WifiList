@@ -949,9 +949,10 @@ namespace WifiList
                     }
                 }
 
+                NetshResult delOld = null;
                 if (saved && renamed)
                 {
-                    WifiCollector.DeleteProfile(oldSsid);
+                    delOld = WifiCollector.DeleteProfile(oldSsid);
                 }
 
                 if (saved && dlg.ConnectNow)
@@ -987,6 +988,16 @@ namespace WifiList
                     {
                         _lblStatus.Text += L.T("status.savedLive");
                     }
+                }
+
+                // The old profile is normally gone by now. If it is not, say so
+                // instead of leaving the user with two look-alike rows and no
+                // explanation.
+                if (delOld != null && !delOld.Ok)
+                {
+                    Prompt.Info(this, L.T("dlg.keepOldTitle"),
+                        L.F("dlg.keepOld", Q(oldSsid), Q(dlg.Ssid)) +
+                        "\r\n\r\n" + FirstLines(delOld.Text, 6));
                 }
 
                 WifiCollector.DropBackup(backup);

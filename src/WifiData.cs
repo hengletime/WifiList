@@ -533,9 +533,58 @@ namespace WifiList
         // profile management
         // ------------------------------------------------------------------
 
+        /// <summary>
+        /// Deletes a saved profile. netsh exits 0 even when it did nothing, so
+        /// its answer alone is never trusted: the profile list is re-read and,
+        /// if the profile is still there, it is removed through the native API.
+        ///
+        /// This matters because a leading '#' makes netsh read the rest of the
+        /// argument as a comment: "wlan delete profile name=#foo" looks up a
+        /// profile called "" and reports success without deleting anything.
+        /// </summary>
         public static NetshResult DeleteProfile(string ssid)
         {
-            return Run("wlan delete profile name=\"" + ssid + "\"");
+            NetshResult r = Run("wlan delete profile name=\"" + ssid + "\"");
+
+            List<string> names;
+            if (!WlanApi.TryProfileNames(out names)) return r;   // no API: keep old behaviour
+            if (!HasName(names, ssid)) return r;                 // netsh did delete it
+
+            NetshResult api = WlanApi.Delete(ssid);
+            if (!api.Ok)
+            {
+                api.Text = r.Text + "\n" + api.Text;
+                return api;
+            }
+
+            List<string> after;
+            if (WlanApi.TryProfileNames(out after) && HasName(after, ssid))
+            {
+                api.Code = 3;
+                api.Text = L.F("w.apiStillThere", ssid);
+            }
+            return api;
+        }
+
+        /// <summary>
+        /// True when netsh cannot be trusted with this name as an argument.
+        /// '#' at the start begins a comment and a quote breaks the argument
+        /// parsing; neither can be escaped from the outside.
+        /// </summary>
+        public static bool NameNeedsApi(string ssid)
+        {
+            if (ssid == null || ssid.Length == 0) return false;
+            if (ssid[0] == '#') return true;
+            return ssid.IndexOf('"') >= 0;
+        }
+
+        private static bool HasName(List<string> names, string ssid)
+        {
+            for (int i = 0; i < names.Count; i++)
+            {
+                if (string.Equals(names[i], ssid, StringComparison.Ordinal)) return true;
+            }
+            return false;
         }
 
         public static NetshResult Connect(string ssid)
@@ -551,6 +600,8 @@ namespace WifiList
         /// </summary>
         public static NetshResult Connect(string ssid, string iface)
         {
+            if (NameNeedsApi(ssid)) return WlanApi.Connect(ssid);
+
             // ssid= helps for hidden networks; the interface pins the adapter.
             string args = "wlan connect name=\"" + ssid + "\" ssid=\"" + ssid + "\"";
             if (iface != null && iface.Length > 0)
@@ -568,8 +619,60 @@ namespace WifiList
         /// <summary>Switches a saved profile between automatic and manual connection.</summary>
         public static NetshResult SetConnectionMode(string ssid, bool auto)
         {
-            return Run("wlan set profileparameter name=\"" + ssid + "\" connectionmode=" +
-                (auto ? "auto" : "manual"));
+            if (!NameNeedsApi(ssid))
+            {
+                return Run("wlan set profileparameter name=\"" + ssid + "\" connectionmode=" +
+                    (auto ? "auto" : "manual"));
+            }
+            return RewriteConnectionMode(ssid, auto);
+        }
+
+        /// <summary>
+        /// The same switch without a name argument: export the profile, flip
+        /// &lt;connectionMode&gt; in the document and write it back. Re-importing
+        /// Windows' own copy keeps everything else — key material, 802.1X,
+        /// MAC randomisation — exactly as it was.
+        /// </summary>
+        private static NetshResult RewriteConnectionMode(string ssid, bool auto)
+        {
+            string dir = NewTempDir("wifi_mode_");
+            try
+            {
+                Run("wlan export profile folder=\"" + dir + "\" key=clear");
+                string file = FindProfileXml(dir, ssid);
+                if (file == null)
+                {
+                    NetshResult miss = new NetshResult();
+                    miss.Code = 2;
+                    miss.Text = L.F("w.exportFail", ssid);
+                    return miss;
+                }
+
+                string body = File.ReadAllText(file);
+                string want = "<connectionMode>" + (auto ? "auto" : "manual") + "</connectionMode>";
+                string replaced = Regex.Replace(body,
+                    @"<connectionMode>\s*(auto|manual)\s*</connectionMode>", want,
+                    RegexOptions.IgnoreCase);
+                if (body.IndexOf("<connectionMode", StringComparison.OrdinalIgnoreCase) < 0)
+                {
+                    replaced = body.Replace("</connectionType>",
+                        "</connectionType>\r\n  " + want);
+                }
+
+                File.WriteAllText(file, replaced, new UTF8Encoding(true));
+                return Run("wlan add profile filename=\"" + file + "\" user=current");
+            }
+            catch (Exception ex)
+            {
+                NetshResult bad = new NetshResult();
+                bad.Code = -1;
+                bad.Text = ex.Message;
+                return bad;
+            }
+            finally
+            {
+                DiscardDir(dir);
+            }
         }
 
         /// <summary>
@@ -579,19 +682,74 @@ namespace WifiList
         /// </summary>
         public static string BackupProfile(string ssid)
         {
-            string dir = Path.Combine(Path.GetTempPath(), "wifi_bak_" + Guid.NewGuid().ToString("N"));
+            string dir = NewTempDir("wifi_bak_");
             try
             {
-                Directory.CreateDirectory(dir);
-                NetshResult r = Run("wlan export profile name=\"" + ssid + "\" folder=\"" + dir + "\" key=clear");
-                if (!r.Ok) return "";
-                string[] files = Directory.GetFiles(dir, "*.xml");
-                return files.Length > 0 ? files[0] : "";
+                Run("wlan export profile name=\"" + ssid + "\" folder=\"" + dir + "\" key=clear");
+                string file = FindProfileXml(dir, ssid);
+                if (file == null)
+                {
+                    // netsh drops a name that starts with '#', so the by-name
+                    // export produces nothing. Dumping every profile and picking
+                    // ours by content is the only way netsh can still hand it over.
+                    Run("wlan export profile folder=\"" + dir + "\" key=clear");
+                    file = FindProfileXml(dir, ssid);
+                }
+                if (file != null) return file;
+
+                DiscardDir(dir);
+                return "";
             }
             catch
             {
+                DiscardDir(dir);
                 return "";
             }
+        }
+
+        private static string NewTempDir(string prefix)
+        {
+            string dir = Path.Combine(Path.GetTempPath(), prefix + Guid.NewGuid().ToString("N"));
+            try { Directory.CreateDirectory(dir); }
+            catch { }
+            return dir;
+        }
+
+        private static void DiscardDir(string dir)
+        {
+            try
+            {
+                if (dir != null && dir.Length > 0 && Directory.Exists(dir))
+                {
+                    Directory.Delete(dir, true);
+                }
+            }
+            catch { }
+        }
+
+        /// <summary>Finds the exported xml of one profile inside a folder.</summary>
+        private static string FindProfileXml(string dir, string ssid)
+        {
+            try
+            {
+                if (!Directory.Exists(dir)) return null;
+                string[] files = Directory.GetFiles(dir, "*.xml");
+                for (int i = 0; i < files.Length; i++)
+                {
+                    try
+                    {
+                        XmlDocument doc = new XmlDocument();
+                        doc.Load(files[i]);
+                        if (string.Equals(NodeText(doc, "name"), ssid, StringComparison.Ordinal))
+                        {
+                            return files[i];
+                        }
+                    }
+                    catch { }
+                }
+            }
+            catch { }
+            return null;
         }
 
         /// <summary>Re-imports a profile that <see cref="BackupProfile"/> exported.</summary>
