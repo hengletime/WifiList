@@ -191,6 +191,7 @@ namespace WifiList
                 sb.Append("\"key\":\"").Append(J(n.Key)).Append("\",");
                 sb.Append("\"hasKey\":").Append(Bool(n.HasKey)).Append(",");
                 sb.Append("\"mode\":\"").Append(J(n.Mode)).Append("\",");
+                sb.Append("\"signal\":").Append(n.Signal).Append(",");   // -1 = not audible
                 sb.Append("\"onex\":").Append(Bool(n.OneX)).Append(",");
                 sb.Append("\"hidden\":").Append(Bool(n.Hidden)).Append(",");
                 sb.Append("\"rand\":false,");

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
+using System.Text;
 
 namespace WifiList
 {
@@ -30,6 +31,20 @@ namespace WifiList
         private const int ProfileListHeader = 8;
         private const int ProfileInfoSize = 516;
 
+        // WLAN_AVAILABLE_NETWORK_LIST: header, then WLAN_AVAILABLE_NETWORK =
+        // WCHAR strProfileName[256] (512) + DOT11_SSID (36) + bssType (4) +
+        // uNumberOfBssids (4) + bNetworkConnectable (4) +
+        // wlanNotConnectableReason (4) + uNumberOfPhyTypes (4) +
+        // dot11PhyTypes[8] (32) + bMorePhyTypes (4) + wlanSignalQuality (4) +
+        // bSecurityEnabled (4) + auth (4) + cipher (4) + dwFlags (4) +
+        // dwReserved (4) -> 628 bytes. Offsets are spelled out because the
+        // quality field sits far enough in that guessing hurts.
+        private const int AvailableListHeader = 8;
+        private const int AvailableNetworkSize = 628;
+        private const int AvailableSsidLengthAt = 512;
+        private const int AvailableSsidAt = 516;
+        private const int AvailableSignalAt = 604;
+
         private const int ConnectionModeProfile = 0;
         private const int BssTypeInfrastructure = 1;
 
@@ -55,6 +70,15 @@ namespace WifiList
         [DllImport("wlanapi.dll", SetLastError = true)]
         private static extern uint WlanConnect(IntPtr hClientHandle, ref Guid pInterfaceGuid,
             ref ConnectionParameters pConnectionParameters, IntPtr pReserved);
+
+        [DllImport("wlanapi.dll", SetLastError = true)]
+        private static extern uint WlanGetAvailableNetworkList(IntPtr hClientHandle,
+            ref Guid pInterfaceGuid, uint dwFlags, IntPtr pReserved,
+            out IntPtr ppAvailableNetworkList);
+
+        [DllImport("wlanapi.dll", SetLastError = true)]
+        private static extern uint WlanScan(IntPtr hClientHandle, ref Guid pInterfaceGuid,
+            IntPtr pDot11Ssid, IntPtr pIeData, IntPtr pReserved);
 
         [DllImport("wlanapi.dll")]
         private static extern void WlanFreeMemory(IntPtr pMemory);
@@ -333,6 +357,135 @@ namespace WifiList
                 Close(handle);
             }
             return result;
+        }
+        /// <summary>
+        /// Signal quality (0-100) for every SSID the radio can currently hear.
+        ///
+        /// The value comes from the WLAN service rather than from parsing
+        /// "netsh wlan show networks", because that output is localised (the
+        /// field is 信号 on this machine, Signal elsewhere) and its percent
+        /// figures are printed per BSSID, which then needs block parsing. The
+        /// API answers with one number per network in every locale.
+        ///
+        /// Networks with several access points keep their strongest value.
+        /// Hidden SSIDs (zero length) are skipped: they cannot be matched to a
+        /// saved profile by name. Returns false when nothing usable came back,
+        /// so the caller can fall back to "no signal known".
+        /// </summary>
+        public static bool TryAvailableSignals(out Dictionary<string, int> signals)
+        {
+            signals = new Dictionary<string, int>(StringComparer.Ordinal);
+            IntPtr handle;
+            if (!Open(out handle)) return false;
+
+            try
+            {
+                List<Guid> ifaces = Interfaces(handle);
+                if (ifaces.Count == 0) return false;
+
+                bool any = false;
+                for (int i = 0; i < ifaces.Count; i++)
+                {
+                    Guid guid = ifaces[i];
+                    IntPtr buf;
+                    uint rc = WlanGetAvailableNetworkList(handle, ref guid, 0, IntPtr.Zero, out buf);
+                    if (rc != ErrorSuccess || buf == IntPtr.Zero) continue;
+
+                    try
+                    {
+                        int count = Marshal.ReadInt32(buf, 0);
+                        if (count <= 0 || count > 512) continue;   // guard a bad header
+
+                        long start = buf.ToInt64() + AvailableListHeader;
+                        for (int j = 0; j < count; j++)
+                        {
+                            long p = start + (long)j * AvailableNetworkSize;
+
+                            int len = Marshal.ReadInt32(new IntPtr(p + AvailableSsidLengthAt));
+                            if (len <= 0 || len > 32) continue;    // hidden network
+
+                            byte[] raw = new byte[len];
+                            Marshal.Copy(new IntPtr(p + AvailableSsidAt), raw, 0, len);
+                            string ssid = DecodeSsid(raw);
+                            if (ssid.Length == 0) continue;
+
+                            int quality = Marshal.ReadInt32(new IntPtr(p + AvailableSignalAt));
+                            if (quality < 0) quality = 0;
+                            if (quality > 100) quality = 100;
+
+                            int seen;
+                            if (signals.TryGetValue(ssid, out seen))
+                            {
+                                if (quality > seen) signals[ssid] = quality;
+                            }
+                            else
+                            {
+                                signals[ssid] = quality;
+                            }
+                            any = true;
+                        }
+                    }
+                    catch { }
+                    finally
+                    {
+                        try { WlanFreeMemory(buf); }
+                        catch { }
+                    }
+                }
+                return any;
+            }
+            catch
+            {
+                return false;
+            }
+            finally
+            {
+                Close(handle);
+            }
+        }
+
+        /// <summary>
+        /// Asks the radio to rescan in the background. The call returns at once;
+        /// results show up in the next WlanGetAvailableNetworkList. Used before a
+        /// refresh so the signal column is not showing a stale neighbourhood.
+        /// </summary>
+        public static void Scan()
+        {
+            IntPtr handle;
+            if (!Open(out handle)) return;
+            try
+            {
+                List<Guid> ifaces = Interfaces(handle);
+                for (int i = 0; i < ifaces.Count; i++)
+                {
+                    Guid guid = ifaces[i];
+                    try { WlanScan(handle, ref guid, IntPtr.Zero, IntPtr.Zero, IntPtr.Zero); }
+                    catch { }
+                }
+            }
+            catch { }
+            finally
+            {
+                Close(handle);
+            }
+        }
+
+        /// <summary>
+        /// SSID bytes are whatever the access point sent. Current gear uses
+        /// UTF-8, older Chinese hotspots send GBK; a strict UTF-8 attempt tells
+        /// them apart because GBK bytes are almost never valid UTF-8.
+        /// </summary>
+        private static string DecodeSsid(byte[] raw)
+        {
+            try
+            {
+                return new UTF8Encoding(false, true).GetString(raw);
+            }
+            catch
+            {
+                try { return Encoding.Default.GetString(raw); }
+                catch { return ""; }
+            }
         }
     }
 }

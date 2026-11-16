@@ -26,6 +26,19 @@ namespace WifiList
         public bool Hidden = false;
         public bool Current = false;
 
+        /// <summary>
+        /// Signal quality 0-100 as reported by the radio, or -1 when the
+        /// network is not currently audible (an old profile, or the adapter is
+        /// on another band). -1 must stay distinct from 0: 0 is a real reading
+        /// at the edge of range.
+        /// </summary>
+        public int Signal = -1;
+
+        public bool HasSignal
+        {
+            get { return this.Signal >= 0; }
+        }
+
         public string AuthCode
         {
             get { return this.Auth == null ? "" : this.Auth.ToUpperInvariant(); }
@@ -113,6 +126,109 @@ namespace WifiList
 
     internal static class WifiCollector
     {
+        /// <summary>When the radio was last asked to rescan (see Load).</summary>
+        private static DateTime _lastScan = DateTime.MinValue;
+
+        /// <summary>
+        /// Text dump used by --diag-net. Shows every adapter, how it scores,
+        /// which one wins, what the current-connection card would display and
+        /// what the radio hears. Kept in the shipped build: when a machine
+        /// reports odd IP/gateway values this answers "which adapter" in one
+        /// command instead of guesswork.
+        /// </summary>
+        public static string Diagnose()
+        {
+            StringBuilder sb = new StringBuilder();
+            sb.AppendLine("== adapters (Up only) ==");
+
+            try
+            {
+                NetworkInterface[] all = NetworkInterface.GetAllNetworkInterfaces();
+                for (int i = 0; i < all.Length; i++)
+                {
+                    NetworkInterface ni = all[i];
+                    if (ni.NetworkInterfaceType == NetworkInterfaceType.Loopback) continue;
+
+                    bool up = ni.OperationalStatus == OperationalStatus.Up;
+                    bool wifi = ni.NetworkInterfaceType == NetworkInterfaceType.Wireless80211;
+                    bool virt = IsVirtual(ni);
+
+                    string ip = "", gw = "";
+                    int dns = 0;
+                    try
+                    {
+                        IPInterfaceProperties p = ni.GetIPProperties();
+                        ip = FirstIpv4(p);
+                        gw = FirstGateway(p);
+                        dns = CountDns(p);
+                    }
+                    catch { }
+
+                    int score = 0;
+                    if (wifi) score += 100;
+                    if (ip.Length > 0) score += 30;
+                    if (gw.Length > 0) score += 40;
+                    if (dns > 0) score += 10;
+
+                    sb.AppendFormat(CultureInfo.InvariantCulture,
+                        "  {0,-34} type={1} up={2} virtual={3} score={4} ip={5} gw={6} dns={7}",
+                        ni.Name, ni.NetworkInterfaceType, up, virt, score,
+                        ip.Length == 0 ? "-" : ip,
+                        gw.Length == 0 ? "-" : gw, dns);
+                    sb.AppendLine();
+                    sb.AppendLine("      " + ni.Description);
+                }
+            }
+            catch (Exception ex)
+            {
+                sb.AppendLine("  error: " + ex.Message);
+            }
+
+            try
+            {
+                NetworkInterface best = BestInterface();
+                sb.AppendLine("winner: " + (best == null ? "(none — no physical adapter is Up)" :
+                    best.Name + "  [" + best.Description + "]"));
+            }
+            catch (Exception ex)
+            {
+                sb.AppendLine("winner: error " + ex.Message);
+            }
+
+            NetworkInfo ci = GetCurrent();
+            sb.AppendLine();
+            sb.AppendLine("== current connection ==");
+            sb.AppendLine("  connected=" + ci.Connected + "  ssid=" + (ci.Ssid.Length == 0 ? "-" : ci.Ssid) +
+                "  bssid=" + (ci.Bssid.Length == 0 ? "-" : ci.Bssid));
+            sb.AppendLine("  adapter=" + (ci.Adapter.Length == 0 ? "-" : ci.Adapter));
+            sb.AppendLine("  ip=" + (ci.Ip.Length == 0 ? "-" : ci.Ip) +
+                "  gateway=" + (ci.Gateway.Length == 0 ? "-" : ci.Gateway) +
+                "  dns=" + (ci.Dns.Count == 0 ? "-" : string.Join(", ", ci.Dns.ToArray())));
+            sb.AppendLine("  signal=" + ci.Signal + "%  rssi=" + (ci.HasRssi ? ci.Rssi.ToString(CultureInfo.InvariantCulture) : "-") +
+                "  speed=" + (ci.Speed.Length == 0 ? "-" : ci.Speed));
+            sb.AppendLine("  hasAddress=" + HasAddress());
+
+            sb.AppendLine();
+            sb.AppendLine("== audible networks ==");
+            Dictionary<string, int> heard;
+            if (!WlanApi.TryAvailableSignals(out heard) || heard.Count == 0)
+            {
+                sb.AppendLine("  (none readable through the WLAN API)");
+            }
+            else
+            {
+                List<string> names = new List<string>(heard.Keys);
+                names.Sort(delegate(string a, string b) { return heard[b].CompareTo(heard[a]); });
+                for (int i = 0; i < names.Count; i++)
+                {
+                    sb.AppendFormat(CultureInfo.InvariantCulture, "  {0,3}%  {1}", heard[names[i]], names[i]);
+                    sb.AppendLine();
+                }
+            }
+
+            return sb.ToString();
+        }
+
         private static byte[] ReadAll(Stream s)
         {
             MemoryStream ms = new MemoryStream();
@@ -217,6 +333,21 @@ namespace WifiList
         public static WifiSnapshot Load()
         {
             WifiSnapshot snap = new WifiSnapshot();
+
+            // Nudge the radio so the signal column reflects the neighbourhood
+            // now rather than whenever Windows last scanned. The call returns
+            // immediately; results land in the next read. Throttled because a
+            // burst of refreshes must not keep the radio hopping channels.
+            try
+            {
+                if ((DateTime.UtcNow - _lastScan).TotalSeconds >= 5)
+                {
+                    _lastScan = DateTime.UtcNow;
+                    WlanApi.Scan();
+                }
+            }
+            catch { }
+
             snap.Current = GetCurrent();
 
             string tmp = Path.Combine(Path.GetTempPath(), "wifi_export_" + Guid.NewGuid().ToString("N"));
@@ -289,10 +420,34 @@ namespace WifiList
                 }
             }
 
-            // sort: current first, then by name
+            // Signal strength for every saved profile the radio can hear.
+            // Profiles out of range keep -1 and sink to the bottom of the list.
+            try
+            {
+                Dictionary<string, int> heard;
+                if (WlanApi.TryAvailableSignals(out heard) && heard.Count > 0)
+                {
+                    for (int i = 0; i < snap.Nets.Count; i++)
+                    {
+                        int q;
+                        if (heard.TryGetValue(snap.Nets[i].Ssid, out q))
+                        {
+                            snap.Nets[i].Signal = q;
+                        }
+                    }
+                }
+            }
+            catch { }
+
+            // Audible networks first, strongest to weakest; the rest by name.
+            // Signal 0 is a real reading at the edge of range and must rank
+            // above "not heard at all" (-1).
             snap.Nets.Sort(delegate(WifiEntry a, WifiEntry b)
             {
-                if (a.Current != b.Current) return a.Current ? -1 : 1;
+                bool ha = a.HasSignal;
+                bool hb = b.HasSignal;
+                if (ha != hb) return ha ? -1 : 1;
+                if (ha && a.Signal != b.Signal) return a.Signal > b.Signal ? -1 : 1;
                 return string.Compare(a.Ssid, b.Ssid, StringComparison.CurrentCulture);
             });
 
@@ -366,8 +521,22 @@ namespace WifiList
 
         /// <summary>
         /// Picks the interface that actually carries the connection: a physical
-        /// wireless adapter with an address, a gateway and DNS wins, virtual
-        /// adapters (Wi-Fi Direct, VPN taps, Hyper-V) always lose.
+        /// wireless adapter with an address, a gateway and DNS wins.
+        ///
+        /// Virtual adapters are skipped outright rather than merely ranked
+        /// lower. The Wi-Fi Direct adapter is itself a Wireless80211 interface
+        /// with an address (192.168.137.1, the ICS range) but no gateway and no
+        /// DNS, so a penalty alone decided nothing whenever it was the only
+        /// candidate left. That is exactly what happened right after switching
+        /// networks: the real card is briefly Down while the old association
+        /// tears down, it got skipped by the Up check, and the virtual adapter
+        /// won by default — the connection card then showed its address and
+        /// dashes for gateway/DNS/link speed until the app was restarted.
+        ///
+        /// Returning null is better than returning a virtual adapter: the
+        /// caller shows the saved previous values / dashes instead of a
+        /// plausible but wrong address, and the delayed refresh picks the real
+        /// card up as soon as it is back.
         /// </summary>
         private static NetworkInterface BestInterface()
         {
@@ -382,6 +551,9 @@ namespace WifiList
                     NetworkInterface ni = all[i];
                     if (ni.OperationalStatus != OperationalStatus.Up) continue;
                     if (ni.NetworkInterfaceType == NetworkInterfaceType.Loopback) continue;
+
+                    // Never let a virtual adapter stand in for the connection.
+                    if (IsVirtual(ni)) continue;
 
                     bool wifi = ni.NetworkInterfaceType == NetworkInterfaceType.Wireless80211;
 
@@ -398,7 +570,6 @@ namespace WifiList
 
                     int score = 0;
                     if (wifi) score += 100;
-                    if (IsVirtual(ni)) score -= 250;
                     if (ip.Length > 0) score += 30;
                     if (gw.Length > 0) score += 40;
                     if (dns > 0) score += 10;
@@ -430,44 +601,27 @@ namespace WifiList
             return ni.Name == null ? "" : ni.Name;
         }
 
+        /// <summary>
+        /// True once a physical adapter holds an IPv4 address. Cheap check used
+        /// to wait out DHCP after a switch, without running netsh in a loop.
+        /// </summary>
+        public static bool HasAddress()
+        {
+            NetworkInterface ni = BestInterface();
+            if (ni == null) return false;
+            try { return FirstIpv4(ni.GetIPProperties()).Length > 0; }
+            catch { return false; }
+        }
+
         public static NetworkInfo GetCurrent()
         {
             NetworkInfo info = new NetworkInfo();
 
-            NetworkInterface best = BestInterface();
-            if (best == null)
-            {
-                return info;
-            }
-
-            info.Connected = true;
-            info.Adapter = (best.Description != null && best.Description.Length > 0) ? best.Description : best.Name;
-
-            try
-            {
-                IPInterfaceProperties props = best.GetIPProperties();
-                info.Ip = FirstIpv4(props);
-                info.Gateway = FirstGateway(props);
-                foreach (IPAddress dns in props.DnsAddresses)
-                {
-                    if (dns.AddressFamily == AddressFamily.InterNetwork)
-                    {
-                        info.Dns.Add(dns.ToString());
-                    }
-                }
-            }
-            catch { }
-
-            try
-            {
-                long bps = best.Speed;
-                if (bps > 0)
-                {
-                    info.Speed = (bps / 1000000.0).ToString("0.#", CultureInfo.InvariantCulture) + " Mbps";
-                }
-            }
-            catch { }
-
+            // The WLAN layer is read first on purpose. netsh still reports the
+            // SSID, BSSID and signal while the adapter is being reconfigured,
+            // whereas the network stack (address, gateway, DNS, link speed) is
+            // empty for a moment after every switch. Reading the stack first
+            // used to leave the whole card without even a network name.
             try
             {
                 string raw = RunNetsh("wlan show interfaces");
@@ -522,6 +676,46 @@ namespace WifiList
                 if (mSsid.Success)
                 {
                     info.Ssid = mSsid.Groups[1].Value.Trim();
+                }
+            }
+            catch { }
+
+            // Being associated is enough to call it connected, even if the
+            // address has not arrived yet.
+            if (info.Ssid.Length > 0) info.Connected = true;
+
+            // Only a physical adapter carries address, gateway, DNS and link
+            // speed; BestInterface returns null while it is between states.
+            NetworkInterface best = BestInterface();
+            if (best == null)
+            {
+                return info;
+            }
+
+            info.Connected = true;
+            info.Adapter = (best.Description != null && best.Description.Length > 0) ? best.Description : best.Name;
+
+            try
+            {
+                IPInterfaceProperties props = best.GetIPProperties();
+                info.Ip = FirstIpv4(props);
+                info.Gateway = FirstGateway(props);
+                foreach (IPAddress dns in props.DnsAddresses)
+                {
+                    if (dns.AddressFamily == AddressFamily.InterNetwork)
+                    {
+                        info.Dns.Add(dns.ToString());
+                    }
+                }
+            }
+            catch { }
+
+            try
+            {
+                long bps = best.Speed;
+                if (bps > 0)
+                {
+                    info.Speed = (bps / 1000000.0).ToString("0.#", CultureInfo.InvariantCulture) + " Mbps";
                 }
             }
             catch { }

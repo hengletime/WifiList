@@ -81,6 +81,28 @@ namespace WifiList
                 return;
             }
 
+            // --diag-net prints how the adapter is chosen and what the radio
+            // hears. Written after a switching bug where the Wi-Fi Direct
+            // virtual adapter was picked while the real card was briefly down.
+            if (args != null && args.Length >= 1 && string.Equals(args[0], "--diag-net", StringComparison.OrdinalIgnoreCase))
+            {
+                string text = WifiCollector.Diagnose();
+                if (args.Length >= 2 && args[1].Length > 0)
+                {
+                    // a GUI executable has no console when its output is
+                    // redirected, so an explicit file is the reliable channel
+                    File.WriteAllText(args[1], text, new System.Text.UTF8Encoding(false));
+                }
+                else
+                {
+                    try { Console.OutputEncoding = System.Text.Encoding.UTF8; }
+                    catch { }
+                    try { Console.WriteLine(text); }
+                    catch { }
+                }
+                return;
+            }
+
             Application.Run(new MainForm());
         }
 

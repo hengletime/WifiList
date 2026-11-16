@@ -146,6 +146,7 @@ namespace WifiList
 
             // ---- grid ----
             A("grid.name", "网络名称", "Network", "ชื่อเครือข่าย");
+            A("grid.signal", "信号", "Signal", "สัญญาณ");
             A("grid.security", "安全类型", "Security", "ความปลอดภัย");
             A("grid.mode", "连接方式", "Connect", "โหมดเชื่อมต่อ");
             A("grid.key", "密码", "Password", "รหัสผ่าน");
@@ -171,6 +172,8 @@ namespace WifiList
             A("status.retryDrop", "正在断开旧连接后重试…", "Dropping the old link and retrying…",
                 "กำลังตัดการเชื่อมต่อเดิมแล้วลองใหม่…");
             A("status.waitConnect", "正在连接{0}… {1}s", "Connecting to {0}… {1}s", "กำลังเชื่อมต่อ {0}… {1}s");
+            A("status.waitAddress", "已连上，正在获取 IP 地址…", "Connected — waiting for an IP address…",
+                "เชื่อมต่อแล้ว กำลังรอที่อยู่ IP…");
             A("status.waitDisconnect", "正在断开… {0}s", "Disconnecting… {0}s", "กำลังตัดการเชื่อมต่อ… {0}s");
             A("status.disconnecting", "正在断开…", "Disconnecting…", "กำลังตัดการเชื่อมต่อ…");
             A("status.disconnected", "已断开无线连接", "Wireless connection closed", "ตัดการเชื่อมต่อไร้สายแล้ว");

@@ -12,6 +12,8 @@ namespace WifiList
         private const int PadSide = 16;
 
         private WifiSnapshot _snap;
+        private System.Windows.Forms.Timer _lateTimer;
+        private int _lateTries;
         private readonly HashSet<string> _revealed = new HashSet<string>(StringComparer.Ordinal);
         private string _sub = "";
         private bool _allShown;
@@ -204,27 +206,33 @@ namespace WifiList
 
             DataGridViewTextBoxColumn c1 = new DataGridViewTextBoxColumn();
             c1.HeaderText = L.T("grid.name");
-            c1.FillWeight = 42F;
+            c1.FillWeight = 39F;
             c1.SortMode = DataGridViewColumnSortMode.NotSortable;
             _grid.Columns.Add(c1);
 
             DataGridViewTextBoxColumn c2 = new DataGridViewTextBoxColumn();
-            c2.HeaderText = L.T("grid.security");
-            c2.FillWeight = 22F;
+            c2.HeaderText = L.T("grid.signal");
+            c2.FillWeight = 10F;
             c2.SortMode = DataGridViewColumnSortMode.NotSortable;
             _grid.Columns.Add(c2);
 
             DataGridViewTextBoxColumn c3 = new DataGridViewTextBoxColumn();
-            c3.HeaderText = L.T("grid.mode");
-            c3.FillWeight = 14F;
+            c3.HeaderText = L.T("grid.security");
+            c3.FillWeight = 20F;
             c3.SortMode = DataGridViewColumnSortMode.NotSortable;
             _grid.Columns.Add(c3);
 
             DataGridViewTextBoxColumn c4 = new DataGridViewTextBoxColumn();
-            c4.HeaderText = L.T("grid.key");
-            c4.FillWeight = 24F;
+            c4.HeaderText = L.T("grid.mode");
+            c4.FillWeight = 13F;
             c4.SortMode = DataGridViewColumnSortMode.NotSortable;
             _grid.Columns.Add(c4);
+
+            DataGridViewTextBoxColumn c5 = new DataGridViewTextBoxColumn();
+            c5.HeaderText = L.T("grid.key");
+            c5.FillWeight = 18F;
+            c5.SortMode = DataGridViewColumnSortMode.NotSortable;
+            _grid.Columns.Add(c5);
         }
 
         private void PaintSearchHost(object sender, PaintEventArgs e)
@@ -483,6 +491,11 @@ namespace WifiList
             }
 
             _busy = false;
+
+            // If the adapter had no address yet, look again shortly: this is
+            // what recovers the IP/gateway/DNS block after a network switch
+            // without the user having to restart the app.
+            EnsureLateRefresh();
         }
 
         private List<WifiEntry> Filtered()
@@ -523,6 +536,7 @@ namespace WifiList
                 WifiEntry n = list[i];
 
                 string name = (n.Current ? "\u2605  " : "") + n.Ssid;
+                string sig = n.HasSignal ? n.Signal.ToString(CultureInfo.InvariantCulture) + "%" : "\u2014";
                 string sec = n.SecurityText();
                 string mode = n.ModeLabel();
                 string keyText;
@@ -539,22 +553,23 @@ namespace WifiList
                     keyText = "\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022";
                 }
 
-                int idx = _grid.Rows.Add(name, sec, mode, keyText);
+                int idx = _grid.Rows.Add(name, sig, sec, mode, keyText);
                 DataGridViewRow row = _grid.Rows[idx];
                 row.Tag = n;
-                row.Cells[1].Style.ForeColor = Ui.TierColor(n.Tier());
+                row.Cells[2].Style.ForeColor = Ui.TierColor(n.Tier());
+                row.Cells[1].Style.ForeColor = n.HasSignal && n.Signal >= 40 ? Ui.Fg : Ui.Mute;
                 if (n.Current)
                 {
                     row.Cells[0].Style.ForeColor = Ui.Accent;
                 }
                 if (!n.HasKey)
                 {
-                    row.Cells[3].Style.ForeColor = Ui.Mute;
+                    row.Cells[4].Style.ForeColor = Ui.Mute;
                 }
                 else if (_revealed.Contains(n.Ssid))
                 {
-                    row.Cells[3].Style.ForeColor = Ui.Ok;
-                    row.Cells[3].Style.Font = Ui.FVal;
+                    row.Cells[4].Style.ForeColor = Ui.Ok;
+                    row.Cells[4].Style.Font = Ui.FVal;
                 }
 
                 if (keep != null && string.Equals(keep, n.Ssid, StringComparison.Ordinal))
@@ -769,6 +784,68 @@ namespace WifiList
             return false;
         }
 
+        /// <summary>
+        /// Waits until the physical adapter holds an address. Association
+        /// completes long before DHCP does, so reading the card too early
+        /// showed "-" for IP, gateway, DNS and link speed even though the
+        /// network was fine — and it only came back after a restart.
+        /// </summary>
+        private bool WaitForAddress(int timeoutMs)
+        {
+            if (WifiCollector.HasAddress()) return true;
+            int waited = 0;
+            while (waited < timeoutMs)
+            {
+                _lblStatus.Text = L.T("status.waitAddress");
+                Application.DoEvents();
+                System.Threading.Thread.Sleep(150);
+                waited += 150;
+                if (WifiCollector.HasAddress()) return true;
+            }
+            return false;
+        }
+
+        /// <summary>
+        /// Starts a short watch for late-arriving connection details. The
+        /// adapter can still be coming up a second after the switch (this is
+        /// also the window in which a virtual adapter could masquerade as the
+        /// connection), so one delayed re-read fixes the card without asking
+        /// the user to restart the app.
+        /// </summary>
+        private void EnsureLateRefresh()
+        {
+            if (_lateTimer != null && _lateTimer.Enabled) return;   // already watching
+            if (_snap == null || !_snap.Current.Connected) return;
+            if (_snap.Current.Ip != null && _snap.Current.Ip.Length > 0) return;
+            if (_lateTries >= 4) return;
+
+            if (_lateTimer == null)
+            {
+                _lateTimer = new System.Windows.Forms.Timer();
+                _lateTimer.Interval = 1500;
+                _lateTimer.Tick += delegate { OnLateRefresh(); };
+            }
+            _lateTimer.Start();
+        }
+
+        private void OnLateRefresh()
+        {
+            if (this.IsDisposed || _lateTimer == null)
+            {
+                if (_lateTimer != null) _lateTimer.Stop();
+                return;
+            }
+            _lateTries++;
+            bool settled = _snap == null || !_snap.Current.Connected ||
+                (_snap.Current.Ip != null && _snap.Current.Ip.Length > 0);
+            if (settled || _lateTries >= 4)
+            {
+                _lateTimer.Stop();
+                return;
+            }
+            if (!_busy) Reload();
+        }
+
         private void ConnectEntry(WifiEntry n)
         {
             if (n == null || _busy) return;
@@ -812,13 +889,20 @@ namespace WifiList
 
             this.Cursor = Cursors.Default;
             _busy = false;
-            Reload();
 
             if (ok)
             {
+                // Association is not a usable connection: DHCP still has to
+                // hand out the address, and until it does the card would show
+                // dashes for IP, gateway, DNS and link speed. Wait for the
+                // address, then read everything at once.
+                WaitForAddress(6000);
+                Reload();
                 _lblStatus.Text = L.F("status.connected", Q(n.Ssid));
                 return;
             }
+
+            Reload();
 
             string detail = last == null ? "" : FirstLines(last.Text, 5);
             string msg = "";
