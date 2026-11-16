@@ -1,8 +1,8 @@
 @echo off
 setlocal
 cd /d "%~dp0"
-title Package WifiList v1.6.5
-set "VER=1.6.5"
+title Package WifiList v1.6.6
+set "VER=1.6.6"
 set "LOG=%CD%\build.log"
 set "OUT=%CD%\dist"
 

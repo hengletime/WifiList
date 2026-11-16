@@ -726,7 +726,7 @@ namespace WifiList
             int head = CapH + Ui.Z(16) + Ui.Z(46) + Ui.Z(12);
             _rowsY = head + _tagH + Ui.Z(16);
             int rowH = Ui.FVal.Height + Ui.Z(7);
-            _updY = _rowsY + rowH * 5 + Ui.Z(14);
+            _updY = _rowsY + rowH * 6 + Ui.Z(14);
             int h = _updY + updH + Ui.Z(12) + _privH + Ui.Z(16) + Ui.Z(30) + Ui.Z(20);
 
             this.ClientSize = new Size(wClient, h);
@@ -926,6 +926,7 @@ namespace WifiList
 
             y = _rowsY;
             Row(g, pad, w, ref y, L.T("ab.version"), "v" + Ui.Version);
+            Row(g, pad, w, ref y, L.T("ab.author"), "Hengletime");
             Row(g, pad, w, ref y, L.T("ab.host"), Environment.MachineName);
             Row(g, pad, w, ref y, L.T("ab.os"), Environment.OSVersion.VersionString);
             Row(g, pad, w, ref y, L.T("ab.clr"), ".NET " + Environment.Version);

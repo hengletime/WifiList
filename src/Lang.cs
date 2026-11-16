@@ -384,6 +384,7 @@ namespace WifiList
                 "View, connect to and manage the Wi-Fi profiles saved on this PC, and export an offline HTML report.",
                 "ดู เชื่อมต่อ และจัดการโปรไฟล์ Wi-Fi ที่บันทึกไว้ในเครื่องนี้ พร้อมส่งออกรายงาน HTML ไว้ดูแบบออฟไลน์");
             A("ab.version", "版本", "Version", "เวอร์ชัน");
+            A("ab.author", "作者", "Author", "ผู้จัดทำ");
             A("ab.host", "本机", "Computer", "เครื่องนี้");
             A("ab.os", "系统", "System", "ระบบ");
             A("ab.clr", "运行时", "Runtime", "รันไทม์");
