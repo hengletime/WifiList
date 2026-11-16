@@ -1,12 +1,12 @@
 @echo off
 setlocal
 cd /d "%~dp0"
-title Build WifiList.exe v1.6.3
+title Build WifiList.exe v1.6.4
 set "LOG=%CD%\build.log"
 
 echo.
 echo   ============================================
-echo    Building WifiList.exe  v1.6.3
+echo    Building WifiList.exe  v1.6.4
 echo    native WinForms app, no installer needed
 echo   ============================================
 echo.
@@ -75,7 +75,7 @@ goto failed
 
 :done
 echo.
-echo   [OK] WifiList.exe v1.6.3 built successfully.
+echo   [OK] WifiList.exe v1.6.4 built successfully.
 echo.
 echo   From now on just double-click WifiList.exe - no rebuild needed.
 echo.

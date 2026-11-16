@@ -93,7 +93,7 @@ namespace WifiList
         // Leelawadee UI has both Thai and Latin.
         public static Font FTitle, FSub, FCardLabel, FCardValue, FCardValueSm, FCardSub;
         public static Font FSsid, FBig, FRing, FMono, FVal, FKey, FBtn, FBtnBold;
-        public static Font FGrid, FEmpty;
+        public static Font FGrid, FGridBold, FEmpty;
 
         /// <summary>Base UI family for the active language.</summary>
         private static string Family()
@@ -132,6 +132,7 @@ namespace WifiList
             FBtn = Nf(8.75F, FontStyle.Regular);
             FBtnBold = Nf(8.75F, FontStyle.Bold);
             FGrid = Nf(9F, FontStyle.Regular);
+            FGridBold = Nf(9F, FontStyle.Bold);
             FEmpty = Nf(8.75F, FontStyle.Regular);
 
             // monospaced families cover Latin and digits only; SSIDs and MAC
@@ -152,7 +153,7 @@ namespace WifiList
             TextFormatFlags.HorizontalCenter | TextFormatFlags.Top | TextFormatFlags.NoPadding |
             TextFormatFlags.SingleLine;
 
-        public const string Version = "1.6.3";
+        public const string Version = "1.6.4";
 
         // ---- DPI helpers -------------------------------------------------
         // Every layout and paint constant is written in 96 dpi "design" units

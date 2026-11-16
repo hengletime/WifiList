@@ -535,7 +535,9 @@ namespace WifiList
             {
                 WifiEntry n = list[i];
 
-                string name = (n.Current ? "\u2605  " : "") + n.Ssid;
+                // The current row is told apart by colour and weight only; a
+                // leading glyph would be read as part of the SSID itself.
+                string name = n.Ssid;
                 string sig = n.HasSignal ? n.Signal.ToString(CultureInfo.InvariantCulture) + "%" : "\u2014";
                 string sec = n.SecurityText();
                 string mode = n.ModeLabel();
@@ -560,7 +562,10 @@ namespace WifiList
                 row.Cells[1].Style.ForeColor = n.HasSignal && n.Signal >= 40 ? Ui.Fg : Ui.Mute;
                 if (n.Current)
                 {
-                    row.Cells[0].Style.ForeColor = Ui.Accent;
+                    // light theme needs the deeper blue: the light accent on a
+                    // white row is only ~2.5:1 and reads as washed out
+                    row.Cells[0].Style.ForeColor = Ui.Theme == UiTheme.Light ? Ui.AccentDeep : Ui.Accent;
+                    row.Cells[0].Style.Font = Ui.FGridBold;
                 }
                 if (!n.HasKey)
                 {
