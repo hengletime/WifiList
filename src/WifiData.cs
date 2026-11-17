@@ -449,8 +449,18 @@ namespace WifiList
             bool changed = false;
             try
             {
+                // The connected profile is read from a different source than the
+                // rest of the list: "netsh wlan show interfaces" reports the
+                // association itself, while the list comes from the last scan
+                // snapshot; the first entry of a given name may even be
+                // another access point of the same SSID. That showed up as 97%
+                // in the signal ring and 99% on the row of the same network, so
+                // the association value wins for that row.
+                int assoc = snap.Current.Connected ? snap.Current.Signal : -1;
+
                 Dictionary<string, int> heard;
-                if (!WlanApi.TryAvailableSignals(out heard) || heard.Count == 0)
+                bool haveList = WlanApi.TryAvailableSignals(out heard) && heard.Count > 0;
+                if (!haveList && assoc <= 0)
                 {
                     return false;
                 }
@@ -458,18 +468,29 @@ namespace WifiList
                 for (int i = 0; i < snap.Nets.Count; i++)
                 {
                     WifiEntry n = snap.Nets[i];
-                    int q;
-                    if (heard.TryGetValue(n.Ssid, out q))
+                    bool isCurrent = assoc > 0 &&
+                        (n.Current || string.Equals(n.Ssid, snap.Current.Ssid, StringComparison.Ordinal));
+
+                    int q = -1;
+                    bool heardThis = haveList && heard.TryGetValue(n.Ssid, out q);
+
+                    if (isCurrent)
                     {
-                        if (n.Signal != q)
+                        q = assoc;
+                    }
+                    else if (!heardThis)
+                    {
+                        if (allowClear && n.Signal >= 0)
                         {
-                            n.Signal = q;
+                            n.Signal = -1;
                             changed = true;
                         }
+                        continue;
                     }
-                    else if (allowClear && n.Signal >= 0)
+
+                    if (n.Signal != q)
                     {
-                        n.Signal = -1;
+                        n.Signal = q;
                         changed = true;
                     }
                 }
