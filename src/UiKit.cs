@@ -153,7 +153,7 @@ namespace WifiList
             TextFormatFlags.HorizontalCenter | TextFormatFlags.Top | TextFormatFlags.NoPadding |
             TextFormatFlags.SingleLine;
 
-        public const string Version = "1.6.6";
+        public const string Version = "1.6.7";
 
         // ---- DPI helpers -------------------------------------------------
         // Every layout and paint constant is written in 96 dpi "design" units

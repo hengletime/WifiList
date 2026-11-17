@@ -115,7 +115,7 @@ namespace WifiList
         private static void Build()
         {
             // ---- application shell ----
-            A("app.title", "WiFi 密码清单", "WiFi Passwords", "รหัสผ่าน WiFi");
+            A("app.title", "WiFi 密码清单", "WiFi Passwords", "รหัสผ่าน Wi-Fi");
             A("app.sub", "v{0}  ·  {1}  ·  {2} 个已保存网络  ·  {3}",
                 "v{0}  ·  {1}  ·  {2} saved networks  ·  {3}",
                 "v{0}  ·  {1}  ·  บันทึกไว้ {2} เครือข่าย  ·  {3}");
@@ -147,7 +147,7 @@ namespace WifiList
             // ---- grid ----
             A("grid.name", "网络名称", "Network", "ชื่อเครือข่าย");
             A("grid.signal", "信号", "Signal", "สัญญาณ");
-            A("grid.security", "安全类型", "Security", "ความปลอดภัย");
+            A("grid.security", "安全类型", "Security", "ประเภทความปลอดภัย");
             A("grid.mode", "连接方式", "Connect", "โหมดเชื่อมต่อ");
             A("grid.key", "密码", "Password", "รหัสผ่าน");
             A("cell.noKey", "无密码", "No password", "ไม่มีรหัสผ่าน");
@@ -155,11 +155,11 @@ namespace WifiList
 
             // ---- status line ----
             A("status.loading", "正在读取已保存的 WiFi 配置…", "Reading saved Wi-Fi profiles…",
-                "กำลังอ่านโปรไฟล์ WiFi ที่บันทึกไว้…");
+                "กำลังอ่านโปรไฟล์ Wi-Fi ที่บันทึกไว้…");
             A("status.count", "共 {0} 个网络 · 当前显示 {1} 个", "{0} networks · showing {1}",
-                "ทั้งหมด {0} เครือข่าย · แสดง {1}");
+                "ทั้งหมด {0} เครือข่าย · แสดง {1} เครือข่าย");
             A("status.empty", "没有读取到任何已保存的 WiFi 配置。",
-                "No saved Wi-Fi profile was found.", "ไม่พบโปรไฟล์ WiFi ที่บันทึกไว้");
+                "No saved Wi-Fi profile was found.", "ไม่พบโปรไฟล์ Wi-Fi ที่บันทึกไว้");
             A("status.readFail", "读取失败", "Read failed", "อ่านข้อมูลไม่สำเร็จ");
             A("status.copied", "已复制到剪贴板", "Copied to the clipboard", "คัดลอกไปยังคลิปบอร์ดแล้ว");
             A("status.copyFail", "复制失败，剪贴板被其他程序占用",
@@ -293,12 +293,12 @@ namespace WifiList
             A("c.bssidUnknown", "BSSID 未知", "BSSID unknown", "ไม่ทราบ BSSID");
             A("c.empty", "连接任意无线网络后，这里会显示 IP、网关、DNS 与链路速率。",
                 "Connect to any wireless network and the IP, gateway, DNS and link speed appear here.",
-                "เชื่อมต่อไร้สายแล้ว IP เกตเวย์ DNS และความเร็วลิงก์จะแสดงที่นี่");
+                "เชื่อมต่อไร้สายแล้ว IP เกตเวย์ DNS และความเร็วในการเชื่อมต่อจะแสดงที่นี่");
             A("c.ip", "IP 地址", "IP address", "IP");
             A("c.gw", "网关", "Gateway", "เกตเวย์");
             A("c.dns", "DNS", "DNS", "DNS");
-            A("c.speed", "链路速率", "Link speed", "ความเร็วลิงก์");
-            A("c.security", "安全类型", "Security", "ความปลอดภัย");
+            A("c.speed", "链路速率", "Link speed", "ความเร็วในการเชื่อมต่อ");
+            A("c.security", "安全类型", "Security", "ประเภทความปลอดภัย");
 
             // ---- add / edit dialog ----
             A("d.addTitle", "添加 WiFi", "Add Wi-Fi", "เพิ่ม Wi-Fi");
@@ -342,7 +342,7 @@ namespace WifiList
 
             A("w.errNoProfiles", "没有导出任何 WiFi 配置。请确认无线网卡已启用，且至少连接过一个网络。",
                 "No Wi-Fi profile could be exported. Check that the wireless adapter is enabled and that this PC has joined at least one network.",
-                "ไม่สามารถส่งออกโปรไฟล์ WiFi ได้ ตรวจสอบว่าอะแดปเตอร์ไร้สายเปิดอยู่และเคยเชื่อมต่ออย่างน้อยหนึ่งเครือข่าย");
+                "ไม่สามารถส่งออกโปรไฟล์ Wi-Fi ได้ ตรวจสอบว่าอะแดปเตอร์ไร้สายเปิดอยู่และเคยเชื่อมต่ออย่างน้อยหนึ่งเครือข่าย");
             A("html.noTemplate", "内置模板缺失：", "The built-in report template is missing:",
                 "ไม่พบเทมเพลตที่ฝังไว้:");
             A("w.errNoBackup", "备份文件不存在，无法回滚。",
